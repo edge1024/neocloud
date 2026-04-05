@@ -1651,9 +1651,16 @@ function SubscribeModal({ onClose, onSuccess }) {
 
 // ─── Home Page ────────────────────────────────────────────────────────────────
 function HomePage({ vendors, resources, demands, subscribers, onGoResources, onGoDemands, onResourceClick, onSubscribe }) {
-  const recentResources = [...resources].sort((a,b)=>b.id-a.id).slice(0,6);
-  const recentDemands   = [...demands].sort((a,b)=>b.id-a.id).slice(0,5);
+  const recentResources = [...resources]
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||b.id-a.id)
+    .slice(0,3);
+  const recentDemands = [...demands]
+    .filter(d=>d.isVisible!==false && (d.status||"online")==="online")
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||b.id-a.id)
+    .slice(0,3);
+  const [expandedDemandId, setExpandedDemandId] = useState(null);
   const rowStyle = { display:"flex", alignItems:"center", gap:14, padding:"12px 16px", borderBottom:"1px solid #f1f5f9", cursor:"pointer" };
+  const thS = { padding:"9px 12px", fontSize:11, fontWeight:700, color:"#64748b", textAlign:"left", letterSpacing:0.5, background:"#f8fafc", borderBottom:"2px solid #e2e8f0", whiteSpace:"nowrap" };
 
   return (
     <div style={{paddingTop:12}}>
@@ -1676,27 +1683,44 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
           <button onClick={onSubscribe} style={{padding:"6px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:8,background:"transparent",color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600}}>订阅更新</button>
         </div>
         <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          {recentResources.map((r,i)=>{
-            const vendor = vendors.find(v=>v.id===r.vendorId);
-            return (
-              <div key={r.id} onClick={()=>onResourceClick(r)}
-                style={{...rowStyle,borderBottom:i===recentResources.length-1?"none":rowStyle.borderBottom}}
-                onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
-                onMouseLeave={e=>e.currentTarget.style.background="transparent"}
-              >
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:1,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.gpu}</div>
-                  <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{vendor?.name||"—"} · {r.count}卡 · {r.region} · {r.delivery}</div>
-                </div>
-                <div style={{display:"flex",gap:4,flexShrink:0}}>{r.tags.slice(0,2).map(t=><Tag key={t} t={t} />)}</div>
-                <div style={{flexShrink:0,textAlign:"right",minWidth:88}}>
-                  <span style={{fontSize:16,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{r.price}</span>
-                  <span style={{fontSize:10,color:"#94a3b8"}}>/卡/时</span>
-                </div>
-                <span style={{fontSize:11,color:r.available?"#2563eb":"#94a3b8",minWidth:42,textAlign:"right"}}>{r.available?"● 可用":"● 售罄"}</span>
-              </div>
-            );
-          })}
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead>
+              <tr>
+                <th style={thS}>品牌</th>
+                <th style={thS}>GPU 型号</th>
+                <th style={thS}>数量</th>
+                <th style={thS}>单位</th>
+                <th style={thS}>区域</th>
+                <th style={thS}>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentResources.map((r,i)=>{
+                const brand = getGpuBrand(r.gpu);
+                const statusLabel = r.status||(r.available?"在线":"下架");
+                const isOnline = statusLabel==="在线"||statusLabel==="预售"||r.available;
+                const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:i===recentResources.length-1?"none":"1px solid #f1f5f9"};
+                return (
+                  <tr key={r.id} onClick={()=>onResourceClick(r)}
+                    style={{cursor:"pointer"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                  >
+                    <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{brand}</td>
+                    <td style={{...tdS,fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:14,letterSpacing:0.8,color:"#0f172a"}}>{r.gpu}</td>
+                    <td style={tdS}>{r.count}</td>
+                    <td style={{...tdS,color:"#64748b"}}>{r.billingUnit||"卡/时"}</td>
+                    <td style={tdS}>{r.region||"—"}</td>
+                    <td style={tdS}>
+                      <span style={{display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,background:isOnline?"#dcfce7":"#f1f5f9",color:isOnline?"#16a34a":"#94a3b8"}}>
+                        {statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
         <button onClick={onGoResources}
           style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
@@ -1712,27 +1736,98 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div style={{display:"flex",alignItems:"baseline",gap:12}}>
             <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>最新需求</h2>
-            <span style={{fontSize:12,color:"#94a3b8"}}>共 {demands.length} 条</span>
+            <span style={{fontSize:12,color:"#94a3b8"}}>共 {demands.filter(d=>d.isVisible!==false&&(d.status||"online")==="online").length} 条</span>
           </div>
           <button onClick={onSubscribe} style={{padding:"6px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:8,background:"transparent",color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600}}>订阅更新</button>
         </div>
         <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          {recentDemands.map((d,i)=>(
-            <div key={d.id} onClick={onGoDemands}
-              style={{...rowStyle,borderBottom:i===recentDemands.length-1?"none":rowStyle.borderBottom}}
-              onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
-              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
-            >
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:1,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.gpu} × {d.count}{d.count_unit||"台"}</div>
-                <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>{d.tags.slice(0,2).map(t=><Tag key={t} t={t} />)}</div>
-              </div>
-              <div style={{flexShrink:0,textAlign:"right"}}>
-                {d.budget>0&&<div style={{fontSize:16,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>≤¥{d.budget}<span style={{fontSize:10,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}>/卡/时</span></div>}
-                <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{d.region} · {d.delivery}</div>
-              </div>
-            </div>
-          ))}
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
+            <thead>
+              <tr>
+                <th style={thS}>GPU 品牌</th>
+                <th style={thS}>GPU 型号</th>
+                <th style={thS}>数量</th>
+                <th style={thS}>租期</th>
+                <th style={thS}>区域</th>
+                <th style={thS}>发布时间</th>
+                <th style={{...thS,width:44}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentDemands.flatMap(d=>{
+                const expanded = expandedDemandId===d.id;
+                const brand = d.gpu_brand||"—";
+                const bdBot = expanded?"none":"1px solid #f1f5f9";
+                const bg = expanded?"rgba(37,99,235,0.04)":"transparent";
+                const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:bdBot};
+                const colSpan = 7;
+
+                const mainRow = (
+                  <tr key={d.id}
+                    onClick={()=>setExpandedDemandId(expanded?null:d.id)}
+                    style={{cursor:"pointer",background:bg}}
+                    onMouseEnter={e=>{if(!expanded)e.currentTarget.style.background="#f8fafc";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background=bg;}}
+                  >
+                    <td style={tdS}>{brand}</td>
+                    <td style={{...tdS,fontWeight:600,fontFamily:"'Bebas Neue',cursive",letterSpacing:0.5,color:"#0f172a"}}>{d.gpu}</td>
+                    <td style={tdS}>{d.count} {d.count_unit||"卡"}</td>
+                    <td style={tdS}>{d.rental_months>0?`${d.rental_months}个月`:"—"}</td>
+                    <td style={tdS}>{d.region||"—"}</td>
+                    <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{d.createdAt}</td>
+                    <td style={{padding:"8px 6px",textAlign:"center",borderBottom:bdBot,width:44}}>
+                      <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b",transition:"all 0.18s",cursor:"pointer",userSelect:"none",flexShrink:0}}>
+                        {expanded?"▲":"▼"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+
+                if (!expanded) return [mainRow];
+
+                const detailFields = [
+                  ["GPU 品牌", brand],
+                  ["GPU 型号", d.gpu],
+                  ["数量", `${d.count} ${d.count_unit||"卡"}`],
+                  ["区域", d.region||null],
+                  ["机房位置", d.dc_location||null],
+                  ["租赁周期", d.rental_months>0?`${d.rental_months} 个月`:null],
+                  ["交付形式", d.delivery_type||d.delivery||null],
+                  ["合同形式", d.contract_type||null],
+                  ["付款方式", (d.payment_type&&d.payment_type!=="其他")?d.payment_type:(d.payment_other||null)],
+                  ["预算", d.budget_text||(d.budget>0?`≤¥${d.budget}/卡/时`:null)],
+                  ["配置要求", d.config_req||null, true],
+                  ["存储要求", d.storage_req||null],
+                  ["带宽要求", d.bandwidth_req||null],
+                  ["联系人", d.contact_name||d.contact||null],
+                  ["联系电话", d.contact_phone||null],
+                  ["公司", d.company||null],
+                  ["邮箱", d.contact_email||null],
+                  ["备注", d.notes||null, true],
+                  ["发布时间", d.createdAt],
+                ].filter(([,v])=>v);
+
+                const detailRow = (
+                  <tr key={`${d.id}-exp`}>
+                    <td colSpan={colSpan} style={{padding:0,borderBottom:"1px solid #e2e8f0"}}>
+                      <div style={{padding:"16px 20px 14px",background:"rgba(37,99,235,0.03)",borderTop:"2px solid #2563eb"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px 20px"}}>
+                          {detailFields.map(([label,value,wide])=>(
+                            <div key={label} style={{gridColumn:wide?"span 3":"auto",minWidth:0}}>
+                              <div style={{fontSize:11,color:"#94a3b8",fontWeight:600,letterSpacing:0.3,marginBottom:2,textTransform:"uppercase"}}>{label}</div>
+                              <div style={{fontSize:13,color:"#374151",lineHeight:1.5,wordBreak:"break-word"}}>{value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+
+                return [mainRow, detailRow];
+              })}
+            </tbody>
+          </table>
         </div>
         <button onClick={onGoDemands}
           style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
