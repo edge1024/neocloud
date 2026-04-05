@@ -1,0 +1,34 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            cd /www/aihub
+            git pull origin main
+
+            # 重启后端（systemd 服务指向 /www/aihub/backend/）
+            systemctl restart aihub
+
+            # 构建前端
+            npm ci --prefix /www/aihub
+            npm run build --prefix /www/aihub
+
+            # 同步构建产物到 nginx 静态目录
+            rsync -av --delete /www/aihub/dist/ /www/aihub-frontend/
+
+            echo "Deploy completed at $(date)"
