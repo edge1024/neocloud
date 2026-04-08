@@ -193,6 +193,13 @@ async def list_resources(
             r.region,
             COALESCE(r.billing_unit,'')                                          AS "billingUnit",
             COALESCE(r.contact_name,'')                                          AS "resContactName",
+            TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
+            COALESCE(v.company_name,'')                                          AS "vendorName",
+            COALESCE(v.contact_name,'')                                          AS "contactName",
+            COALESCE(v.contact_phone,'')                                         AS "contactPhone",
+            COALESCE(v.email,'')                                                 AS "contactEmail",
+            COALESCE(v.location,'')                                              AS "vendorLocation",
+            COALESCE(v.slug, v.id::text)                                         AS "shareToken",
             COALESCE(
                 array_agg(t.name ORDER BY t.id) FILTER (WHERE t.name IS NOT NULL),
                 ARRAY[]::text[]
@@ -202,7 +209,7 @@ async def list_resources(
         LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
         LEFT JOIN tags     t   ON t.id   = rtm.tag_id
         WHERE {where}
-        GROUP BY r.id
+        GROUP BY r.id, v.company_name, v.contact_name, v.contact_phone, v.email, v.location, v.slug
         {having}
         ORDER BY r.id
     """
@@ -730,6 +737,36 @@ async def admin_patch_vendor(vendor_id: int, body: VendorStatusPatch, user=Depen
             raise HTTPException(status_code=404, detail="供应商不存在")
         await conn.execute("UPDATE vendors SET status=$1 WHERE id=$2", body.status, vendor_id)
     return {"ok": True, "status": body.status}
+
+
+class VendorMergeBody(BaseModel):
+    target_id: int          # 保留的供应商 ID
+    source_ids: List[int]   # 要合并掉的供应商 ID 列表
+
+@app.post("/api/admin/vendors/merge")
+async def admin_merge_vendors(body: VendorMergeBody, user=Depends(admin_required)):
+    if body.target_id in body.source_ids:
+        raise HTTPException(status_code=400, detail="target_id 不能出现在 source_ids 中")
+    if not body.source_ids:
+        raise HTTPException(status_code=400, detail="source_ids 不能为空")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # 确认 target 存在
+        target = await conn.fetchrow("SELECT id FROM vendors WHERE id=$1", body.target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="目标供应商不存在")
+        # 把资源、需求迁移到 target，然后删除 source vendors
+        for src_id in body.source_ids:
+            await conn.execute(
+                "UPDATE gpu_resources SET vendor_id=$1 WHERE vendor_id=$2",
+                body.target_id, src_id
+            )
+            await conn.execute(
+                "UPDATE demands SET vendor_id=$1 WHERE vendor_id=$2",
+                body.target_id, src_id
+            )
+            await conn.execute("DELETE FROM vendors WHERE id=$1", src_id)
+    return {"ok": True, "merged_into": body.target_id, "removed": body.source_ids}
 
 
 # ─── GPU Model Library ────────────────────────────────────────────────────────

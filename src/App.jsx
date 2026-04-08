@@ -897,81 +897,127 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   const brand = getGpuBrand(resource.gpu);
   const shareUrl = `https://www.neocloud.market?resource=${resource.id}`;
   const billingUnit = resource.billingUnit || "卡/时";
-  const contactName = resource.resContactName || vendor?.contactName || "";
-  const contactPhone = vendor?.contactPhone || "";
-  const email = vendor?.email || "";
-  const shareText = `【GPU 资源】${resource.gpu}\n供应商：${vendor?.name}  ${resource.region}\n数量：${resource.count} · 计费：${billingUnit}\n状态：${resource.status||"在线"}\n来源：${shareUrl}`;
 
-  const infoItems = [
-    ["GPU 品牌", brand],
-    ["GPU 型号", resource.gpu],
-    ["数量", `${resource.count} (${billingUnit})`],
-    ["区域", resource.region || "—"],
-    ["状态", resource.status || (resource.available ? "在线" : "—")],
-    resource.mem && ["显存", resource.mem],
-    resource.bandwidth && ["带宽", resource.bandwidth],
-    resource.delivery && ["交付形式", resource.delivery],
-    resource.availableQuantity != null && ["可用数量", String(resource.availableQuantity)],
-  ].filter(Boolean);
+  const vendorName     = resource.vendorName     || vendor?.name          || "";
+  const contactName    = resource.resContactName || resource.contactName  || vendor?.contactName  || "";
+  const contactPhone   = resource.contactPhone   || vendor?.contactPhone  || "";
+  const contactEmail   = resource.contactEmail   || vendor?.email         || "";
+  const vendorLocation = resource.vendorLocation || vendor?.location      || "";
+  const shareToken     = resource.shareToken     || vendor?.shareToken    || "";
+
+  const shareText = `【GPU 资源】${resource.gpu}\n供应商：${vendorName}  ${resource.region}\n数量：${resource.count} · 计费：${billingUnit}\n状态：${resource.status||"在线"}\n来源：${shareUrl}`;
+
+  // 资源基本信息 — 空值跳过
+  const basicItems = [
+    ["GPU 品牌",   brand],
+    ["GPU 型号",   resource.gpu],
+    ["数量",       `${resource.count} ${billingUnit}`],
+    ["区域",       resource.region],
+    ["机房位置",   vendorLocation],
+    ["状态",       resource.status || (resource.available ? "在线" : null)],
+    ["显存",       resource.mem],
+    ["内存带宽",   resource.bandwidth],
+    ["交付形式",   resource.delivery],
+    ["可用数量",   resource.availableQuantity != null ? String(resource.availableQuantity) : null],
+    ["发布时间",   resource.createdAt],
+  ].filter(([, v]) => v);
+
+  // 联系人信息 — 空值跳过
+  const contactItems = [
+    ["公司名称", vendorName],
+    ["联系人",   contactName],
+    ["联系电话", contactPhone],
+    ["电子邮箱", contactEmail],
+  ].filter(([, v]) => v);
+
+  const SectionLabel = ({ children }) => (
+    <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:1,textTransform:"uppercase",marginBottom:8,marginTop:4}}>
+      {children}
+    </div>
+  );
+
+  const InfoGrid = ({ items }) => (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:14}}>
+      {items.map(([k, v]) => (
+        <div key={k} style={{background:"#f8fafc",borderRadius:8,padding:"9px 12px",border:"1px solid #e2e8f0",minWidth:0}}>
+          <div style={{fontSize:10,color:"#94a3b8",marginBottom:2,fontWeight:700,letterSpacing:0.5}}>{k}</div>
+          <div style={{fontSize:13,fontWeight:600,color:"#374151",wordBreak:"break-all"}}>{v}</div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <Modal onClose={onClose} width={540}>
-      {showShare ? <ShareSheet title={resource.gpu} shareText={shareText} shareUrl={shareUrl} onClose={()=>setShowShare(false)} /> : <>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-          <div>
-            <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,letterSpacing:1.5,color:"#0f172a"}}>{resource.gpu}</div>
-            <span style={{display:"inline-block",marginTop:4,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(37,99,235,0.08)",color:"#2563eb"}}>{brand}</span>
-          </div>
-          <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
-        </div>
-
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-          {infoItems.map(([k,v])=>(
-            <div key={k} style={{background:"#f8fafc",borderRadius:8,padding:"10px 14px",border:"1px solid #e2e8f0"}}>
-              <div style={{fontSize:10,color:"#94a3b8",marginBottom:3,fontWeight:700,letterSpacing:0.5}}>{k}</div>
-              <div style={{fontSize:13,fontWeight:600,color:"#374151"}}>{v}</div>
-            </div>
-          ))}
-        </div>
-
-        {resource.tags?.length > 0 && (
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {resource.tags.map(t=><Tag key={t} t={t} />)}
-          </div>
-        )}
-        {resource.desc && <div style={{fontSize:13,color:"#475569",lineHeight:1.7,borderLeft:"2px solid #bfdbfe",paddingLeft:12,marginBottom:16}}>{resource.desc}</div>}
-
-        {/* Supplier info */}
-        <div style={{background:"#f8fafc",borderRadius:10,border:"1px solid #e2e8f0",padding:"14px 16px",marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#64748b",letterSpacing:0.5,marginBottom:10}}>供应商信息</div>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-            <Avatar text={vendor?.name?.slice(0,2)||"??"} size={32} />
+    <Modal onClose={onClose} width={560}>
+      {showShare
+        ? <ShareSheet title={resource.gpu} shareText={shareText} shareUrl={shareUrl} onClose={()=>setShowShare(false)} />
+        : <>
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
             <div>
-              {vendor?.shareToken ? (
-                <a href={`/vendor/${vendor.shareToken}`} target="_blank" rel="noopener noreferrer" style={{fontSize:14,fontWeight:700,color:"#2563eb",textDecoration:"none"}}>
-                  {vendor?.name} ↗
-                </a>
-              ) : (
-                <span style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{vendor?.name||"—"}</span>
-              )}
-              <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{vendor?.location} · 入驻 {vendor?.joined}</div>
+              <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,letterSpacing:1.5,color:"#0f172a"}}>{resource.gpu}</div>
+              <span style={{display:"inline-block",marginTop:4,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(37,99,235,0.08)",color:"#2563eb"}}>{brand}</span>
             </div>
+            <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer",lineHeight:1}}>✕</button>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-            {[["联系人", contactName],["电话", contactPhone],["邮箱", email],["公司", vendor?.name]].filter(([,v])=>v).map(([k,v])=>(
-              <div key={k} style={{fontSize:12}}>
-                <span style={{color:"#94a3b8"}}>{k}：</span>
-                <span style={{color:"#374151"}}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>setShowShare(true)} style={{...ghostBtn,flex:1}}>分享</button>
-          <button onClick={onClose} style={{...primaryBtn,flex:2}}>关闭</button>
-        </div>
-      </>}
+          {/* 资源信息 */}
+          <SectionLabel>资源信息</SectionLabel>
+          <InfoGrid items={basicItems} />
+
+          {/* Tags */}
+          {resource.tags?.length > 0 && (
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+              {resource.tags.map(t => <Tag key={t} t={t} />)}
+            </div>
+          )}
+
+          {/* 描述 */}
+          {resource.desc && (
+            <div style={{fontSize:13,color:"#475569",lineHeight:1.7,borderLeft:"2px solid #bfdbfe",paddingLeft:12,marginBottom:14}}>
+              {resource.desc}
+            </div>
+          )}
+
+          {/* 联系方式 */}
+          {contactItems.length > 0 && <>
+            <SectionLabel>联系方式</SectionLabel>
+            <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px"}}>
+                {contactItems.map(([k, v]) => (
+                  <div key={k} style={{fontSize:12,minWidth:0}}>
+                    <span style={{color:"#60a5fa",fontWeight:600}}>{k}：</span>
+                    <span style={{color:"#1e3a5f",wordBreak:"break-all"}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>}
+
+          {/* 供应商入口 */}
+          {vendorName && <>
+            <SectionLabel>供应商</SectionLabel>
+            <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"11px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+              <Avatar text={vendorName.slice(0,2)} size={32} />
+              <div style={{flex:1,minWidth:0}}>
+                {shareToken
+                  ? <a href={`/vendor/${shareToken}`} target="_blank" rel="noopener noreferrer"
+                      style={{fontSize:14,fontWeight:700,color:"#2563eb",textDecoration:"none"}}>
+                      {vendorName} ↗
+                    </a>
+                  : <span style={{fontSize:14,fontWeight:700,color:"#0f172a"}}>{vendorName}</span>
+                }
+                {vendorLocation && <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{vendorLocation}</div>}
+              </div>
+            </div>
+          </>}
+
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setShowShare(true)} style={{...ghostBtn,flex:1}}>分享</button>
+            <button onClick={onClose} style={{...primaryBtn,flex:2}}>关闭</button>
+          </div>
+        </>
+      }
     </Modal>
   );
 }
@@ -2149,6 +2195,10 @@ function AdminPanel({ onExit, token }) {
   const [vendorDem, setVendorDem] = useState([]);
   const [vendorSaving, setVendorSaving] = useState(false);
   const [editInfo, setEditInfo] = useState({});
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSelected, setMergeSelected] = useState([]); // selected vendor ids
+  const [mergeTargetId, setMergeTargetId] = useState(null);
+  const [mergeSaving, setMergeSaving] = useState(false);
   const [gpuBrands, setGpuBrands] = useState([]);
   const [gpuSeriesList, setGpuSeriesList] = useState([]);
   const [gpuModelsList, setGpuModelsList] = useState([]);
@@ -2246,6 +2296,28 @@ function AdminPanel({ onExit, token }) {
       });
       if (res.ok) setAllVendors(vs=>vs.map(v=>v.id===vendorId?{...v,name:editInfo.company_name,contact_name:editInfo.contact_name,contact_phone:editInfo.contact_phone,email:editInfo.email,location:editInfo.location}:v));
     } finally { setVendorSaving(false); }
+  };
+
+  const doMerge = async () => {
+    if (!mergeTargetId || mergeSelected.length < 2) return;
+    const sourceIds = mergeSelected.filter(id => id !== mergeTargetId);
+    if (sourceIds.length === 0) return;
+    setMergeSaving(true);
+    try {
+      const res = await fetch(`${API}/api/admin/vendors/merge`, {
+        method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body: JSON.stringify({ target_id: mergeTargetId, source_ids: sourceIds }),
+      });
+      if (res.ok) {
+        setAllVendors(vs => vs.filter(v => !sourceIds.includes(v.id)));
+        setMergeMode(false);
+        setMergeSelected([]);
+        setMergeTargetId(null);
+      } else {
+        const d = await res.json().catch(()=>({}));
+        alert(d.detail || "合并失败");
+      }
+    } finally { setMergeSaving(false); }
   };
 
   const toggleResVisibility = async (r) => {
@@ -2445,8 +2517,33 @@ function AdminPanel({ onExit, token }) {
         )}
         {adminTab === "vendors" && (
           <>
-            <div style={{fontSize:22,fontWeight:700,color:"#0f172a",marginBottom:4}}>用户管理</div>
-            <div style={{fontSize:13,color:"#64748b",marginBottom:28}}>查看所有已入驻用户，点击展开可管理其资源和需求</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <div style={{fontSize:22,fontWeight:700,color:"#0f172a"}}>用户管理</div>
+              {!mergeMode ? (
+                <button onClick={()=>{setMergeMode(true);setMergeSelected([]);setMergeTargetId(null);}}
+                  style={{...ghostBtn,fontSize:12,padding:"6px 14px"}}>合并供应商</button>
+              ) : (
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <span style={{fontSize:12,color:"#64748b"}}>已选 {mergeSelected.length} 个</span>
+                  <button onClick={doMerge} disabled={mergeSaving||mergeSelected.length<2||!mergeTargetId}
+                    style={{...primaryBtn,fontSize:12,padding:"6px 14px",opacity:(mergeSelected.length<2||!mergeTargetId)?0.4:1}}>
+                    {mergeSaving?"合并中...":"确认合并"}
+                  </button>
+                  <button onClick={()=>{setMergeMode(false);setMergeSelected([]);setMergeTargetId(null);}}
+                    style={{...ghostBtn,fontSize:12,padding:"6px 14px"}}>取消</button>
+                </div>
+              )}
+            </div>
+            <div style={{fontSize:13,color:"#64748b",marginBottom:mergeMode?8:28}}>
+              {mergeMode
+                ? "勾选要合并的供应商，然后点击其中一个「设为保留」确定目标"
+                : "查看所有已入驻用户，点击展开可管理其资源和需求"}
+            </div>
+            {mergeMode && mergeTargetId && (
+              <div style={{fontSize:12,color:"#2563eb",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"6px 14px",marginBottom:12}}>
+                保留目标：<strong>{allVendors.find(v=>v.id===mergeTargetId)?.name}</strong>，其余选中供应商的资源和需求将迁移至此，原记录删除
+              </div>
+            )}
             {vendorLoading ? (
               <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8",fontSize:14}}>加载中…</div>
             ) : allVendors.length === 0 ? (
@@ -2458,10 +2555,25 @@ function AdminPanel({ onExit, token }) {
                   const isSuspended = v.status === "suspended";
                   const statusColor = isActive?"#16a34a":isSuspended?"#dc2626":"#d97706";
                   const statusLabel = isActive?"上线中":isSuspended?"已下架":"待审核";
-                  const isExpanded = expandedVendor === v.id;
+                  const isExpanded = !mergeMode && expandedVendor === v.id;
+                  const isChecked = mergeSelected.includes(v.id);
+                  const isTarget = mergeTargetId === v.id;
                   return (
-                    <div key={v.id} style={{background:"#ffffff",border:`1px solid ${isExpanded?"#93c5fd":"#e2e8f0"}`,borderRadius:10,boxShadow:"0 1px 2px rgba(0,0,0,0.03)",overflow:"hidden"}}>
-                      <div onClick={()=>expandVendor(v)} style={{padding:"14px 18px",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
+                    <div key={v.id} style={{background:"#ffffff",border:`1px solid ${isTarget?"#2563eb":isChecked?"#93c5fd":isExpanded?"#93c5fd":"#e2e8f0"}`,borderRadius:10,boxShadow:"0 1px 2px rgba(0,0,0,0.03)",overflow:"hidden"}}>
+                      <div
+                        onClick={()=>{
+                          if (mergeMode) {
+                            setMergeSelected(sel => sel.includes(v.id) ? sel.filter(x=>x!==v.id) : [...sel, v.id]);
+                            if (mergeTargetId === v.id) setMergeTargetId(null);
+                          } else {
+                            expandVendor(v);
+                          }
+                        }}
+                        style={{padding:"14px 18px",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
+                        {mergeMode && (
+                          <input type="checkbox" checked={isChecked} readOnly
+                            style={{width:16,height:16,accentColor:"#2563eb",flexShrink:0,cursor:"pointer"}} />
+                        )}
                         <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#2563eb,#7c3aed)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:14,fontWeight:700,flexShrink:0}}>
                           {v.name.slice(0,2)}
                         </div>
@@ -2474,13 +2586,19 @@ function AdminPanel({ onExit, token }) {
                           </div>
                         </div>
                         <span style={{fontSize:11,fontWeight:600,color:statusColor,background:statusColor+"15",border:`1px solid ${statusColor}40`,borderRadius:20,padding:"3px 10px",flexShrink:0}}>{statusLabel}</span>
-                        {v.status !== "pending" && (
+                        {mergeMode && isChecked && (
+                          <button onClick={e=>{e.stopPropagation();setMergeTargetId(isTarget?null:v.id);}}
+                            style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:`1px solid ${isTarget?"#2563eb":"#cbd5e1"}`,color:isTarget?"#2563eb":"#64748b",background:isTarget?"#eff6ff":"none",cursor:"pointer",flexShrink:0,fontWeight:isTarget?700:400}}>
+                            {isTarget?"✓ 保留目标":"设为保留"}
+                          </button>
+                        )}
+                        {!mergeMode && v.status !== "pending" && (
                           <button onClick={e=>{e.stopPropagation();toggleVendor(v);}} disabled={vendorUpdating===v.id}
                             style={{fontSize:12,color:isActive?"#dc2626":"#16a34a",background:"none",border:`1px solid ${isActive?"#fecaca":"#bbf7d0"}`,borderRadius:6,padding:"5px 14px",cursor:"pointer",flexShrink:0,opacity:vendorUpdating===v.id?0.5:1}}>
                             {vendorUpdating===v.id?"处理中...":isActive?"下架":"恢复上线"}
                           </button>
                         )}
-                        <span style={{fontSize:12,color:"#94a3b8",flexShrink:0}}>{isExpanded?"▲":"▼"}</span>
+                        {!mergeMode && <span style={{fontSize:12,color:"#94a3b8",flexShrink:0}}>{isExpanded?"▲":"▼"}</span>}
                       </div>
                       {isExpanded && (
                         <div style={{borderTop:"1px solid #e2e8f0",padding:"16px 18px"}}>
