@@ -1035,11 +1035,11 @@ function GpuModelGroup({ gpu, items, vendors, onDetailClick }) {
     <div style={{border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:8,background:"#ffffff",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
       <div
         onClick={()=>setExpanded(e=>!e)}
-        style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",background:expanded?"#f8fafc":"#ffffff",cursor:"pointer",userSelect:"none"}}
-        onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
-        onMouseLeave={e=>e.currentTarget.style.background=expanded?"#f8fafc":"#ffffff"}
+        style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",background:expanded?"#f0f6ff":"#ffffff",cursor:"pointer",userSelect:"none",transition:"background 0.15s"}}
+        onMouseEnter={e=>e.currentTarget.style.background="#f0f6ff"}
+        onMouseLeave={e=>e.currentTarget.style.background=expanded?"#f0f6ff":"#ffffff"}
       >
-        <span style={{fontSize:11,color:"#2563eb",display:"inline-block",transition:"transform 0.2s",transform:expanded?"rotate(90deg)":"rotate(0deg)",flexShrink:0}}>▶</span>
+        <span style={{fontSize:13,fontWeight:700,color:"#2563eb",display:"inline-block",transition:"transform 0.2s",transform:expanded?"rotate(90deg)":"rotate(0deg)",flexShrink:0,lineHeight:1}}>▶</span>
         <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:17,letterSpacing:1.2,color:"#0f172a",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{gpu}</span>
         <div style={{display:"flex",alignItems:"center",gap:16,flexShrink:0}}>
           <span className="desk-only" style={{fontSize:12,color:"#94a3b8"}}>{items.length}个供应商</span>
@@ -1056,8 +1056,8 @@ function GpuModelGroup({ gpu, items, vendors, onDetailClick }) {
             const vendor = vendors.find(v=>v.id===r.vendorId);
             return (
               <div key={r.id} onClick={()=>onDetailClick(r)} className="gpu-row"
-                style={{display:"flex",alignItems:"center",gap:12,padding:"11px 18px 11px 44px",borderBottom:"1px solid #f1f5f9",cursor:"pointer"}}
-                onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"11px 18px 11px 44px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",transition:"background 0.12s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#eef4ff"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}
               >
                 <Avatar text={vendor?.name.slice(0,2)||"??"} size={26} />
@@ -1075,7 +1075,7 @@ function GpuModelGroup({ gpu, items, vendors, onDetailClick }) {
                 <span className="desk-only" style={{fontSize:12,color:"#64748b",minWidth:28}}>{r.region}</span>
                 <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>¥{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}>/卡/时</span></span>
                 <span style={{fontSize:11,color:r.available?"#2563eb":"#94a3b8",minWidth:40}}>{r.available?"● 可用":"● 售罄"}</span>
-                <span style={{fontSize:13,color:"#94a3b8"}}>›</span>
+                <span style={{fontSize:16,fontWeight:700,color:"#94a3b8",lineHeight:1}}>›</span>
               </div>
             );
           })}
