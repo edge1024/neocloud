@@ -912,6 +912,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
     ["GPU 品牌",   brand],
     ["GPU 型号",   resource.gpu],
     ["数量",       `${resource.count} ${billingUnit}`],
+    ["单价",       resource.price != null ? `¥${resource.price}/卡/时` : null],
     ["区域",       resource.region],
     ["机房位置",   vendorLocation],
     ["状态",       resource.status || (resource.available ? "在线" : null)],
