@@ -207,7 +207,7 @@ async def list_resources(
         LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
         LEFT JOIN tags     t   ON t.id   = rtm.tag_id
         WHERE {where}
-        GROUP BY r.id, v.company_name, v.contact_name, v.contact_phone, v.email, v.location, v.slug
+        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.email, v.location, v.slug
         {having}
         ORDER BY r.id
     """
