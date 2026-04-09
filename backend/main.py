@@ -532,6 +532,16 @@ class ResourcePatch(BaseModel):
     count: Optional[int] = None
     is_visible: Optional[bool] = None
     available_quantity: Optional[int] = None
+    # 全字段编辑
+    gpu: Optional[str] = None
+    price: Optional[float] = None
+    mem: Optional[str] = None
+    bandwidth: Optional[str] = None
+    region: Optional[str] = None
+    delivery: Optional[str] = None
+    desc: Optional[str] = None
+    billing_unit: Optional[str] = None
+    contact_name: Optional[str] = None
 
 @app.patch("/api/resources/{resource_id}", status_code=200)
 async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(current_user)):
@@ -556,6 +566,33 @@ async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(cur
         if body.available_quantity is not None:
             params.append(body.available_quantity)
             updates.append(f"available_quantity=${len(params)}")
+        if body.gpu is not None:
+            params.append(body.gpu)
+            updates.append(f"gpu_model=${len(params)}")
+        if body.price is not None:
+            params.append(body.price)
+            updates.append(f"price_per_hour=${len(params)}")
+        if body.mem is not None:
+            params.append(body.mem or None)
+            updates.append(f"memory_size=${len(params)}")
+        if body.bandwidth is not None:
+            params.append(body.bandwidth or None)
+            updates.append(f"memory_bandwidth=${len(params)}")
+        if body.region is not None:
+            params.append(body.region)
+            updates.append(f"region=${len(params)}")
+        if body.delivery is not None:
+            params.append(body.delivery)
+            updates.append(f"delivery_type=${len(params)}")
+        if body.desc is not None:
+            params.append(body.desc or None)
+            updates.append(f"description=${len(params)}")
+        if body.billing_unit is not None:
+            params.append(body.billing_unit or None)
+            updates.append(f"billing_unit=${len(params)}")
+        if body.contact_name is not None:
+            params.append(body.contact_name or None)
+            updates.append(f"contact_name=${len(params)}")
         if not updates:
             return {"ok": True}
         params.append(resource_id)

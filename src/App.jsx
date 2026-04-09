@@ -472,6 +472,228 @@ function PublishModal({ vendor, onClose, onPublish }) {
   );
 }
 
+// ─── Edit Resource Modal ──────────────────────────────���───────────────────────
+function EditResourceModal({ resource, token, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    gpu:           resource.gpu        || "",
+    mem:           resource.mem        || "",
+    bandwidth:     resource.bandwidth  || "",
+    count:         String(resource.count ?? ""),
+    billingUnit:   resource.billingUnit|| "卡/时",
+    price:         String(resource.price ?? ""),
+    region:        resource.region     || "国内",
+    delivery:      resource.delivery   || "裸金属",
+    status:        resource.status     || "在线",
+    isVisible:     resource.isVisible !== false,
+    availableQuantity: resource.availableQuantity != null ? String(resource.availableQuantity) : "",
+    desc:          resource.desc       || "",
+    contactName:   resource.resContactName || "",
+  });
+  const [gpuBrands, setGpuBrands] = useState([]);
+  const [gpuSeriesList, setGpuSeriesList] = useState([]);
+  const [gpuModelsList, setGpuModelsList] = useState([]);
+  const [selBrandId, setSelBrandId] = useState(null);
+  const [selSeriesId, setSelSeriesId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(()=>{
+    fetch(`${API}/api/gpu-brands`).then(r=>r.json()).then(setGpuBrands).catch(()=>{});
+  },[]);
+
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const setv = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleBrand = (brandId) => {
+    setSelBrandId(brandId); setSelSeriesId(null); setGpuSeriesList([]); setGpuModelsList([]);
+    fetch(`${API}/api/gpu-series?brand_id=${brandId}`).then(r=>r.json()).then(setGpuSeriesList).catch(()=>{});
+  };
+  const handleSeries = (seriesId) => {
+    setSelSeriesId(seriesId); setGpuModelsList([]);
+    fetch(`${API}/api/gpu-models?series_id=${seriesId}`).then(r=>r.json()).then(setGpuModelsList).catch(()=>{});
+  };
+  const handleModel = (modelId) => {
+    const m = gpuModelsList.find(x=>x.id===modelId);
+    if (m) setForm(f=>({...f, gpu: m.name, mem: m.vram_gb ? `${m.vram_gb}GB` : f.mem}));
+  };
+
+  const handle = async () => {
+    if (saving) return;
+    if (!form.gpu.trim() || !form.count || !form.price) { setErr("GPU型号、数量、单价为必填项"); return; }
+    setSaving(true); setErr("");
+    try {
+      const res = await fetch(`${API}/api/resources/${resource.id}`, {
+        method: "PATCH",
+        headers: {"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body: JSON.stringify({
+          gpu:               form.gpu.trim(),
+          mem:               form.mem.trim(),
+          bandwidth:         form.bandwidth.trim(),
+          count:             Number(form.count),
+          billing_unit:      form.billingUnit,
+          price:             Number(form.price),
+          region:            form.region,
+          delivery:          form.delivery,
+          status:            form.status,
+          is_visible:        form.isVisible,
+          available_quantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
+          desc:              form.desc.trim(),
+          contact_name:      form.contactName.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      onSaved({
+        ...resource,
+        gpu: form.gpu.trim(), mem: form.mem.trim(), bandwidth: form.bandwidth.trim(),
+        count: Number(form.count), billingUnit: form.billingUnit, price: Number(form.price),
+        region: form.region, delivery: form.delivery, status: form.status,
+        isVisible: form.isVisible,
+        availableQuantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
+        desc: form.desc.trim(), resContactName: form.contactName.trim(),
+        available: form.status !== "下架",
+      });
+      onClose();
+    } catch(e) {
+      setErr("保存失败：" + e.message);
+      setSaving(false);
+    }
+  };
+
+  const sl  = {fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:1,marginBottom:10,marginTop:18,paddingBottom:6,borderBottom:"1px solid #e2e8f0"};
+  const lbl = {display:"block",fontSize:12,color:"#64748b",marginBottom:5};
+  const row2= {display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"};
+
+  return (
+    <Modal onClose={onClose} width={640}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+        <div>
+          <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>编辑资源</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:4}}>{resource.gpu}</div>
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
+      </div>
+
+      {/* GPU 信息 */}
+      <div style={sl}>GPU 信息</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>从品牌库选择（可选）</label>
+          <select value={selBrandId||""} onChange={e=>{if(e.target.value) handleBrand(parseInt(e.target.value));}} style={inp}>
+            <option value="">— 品牌 —</option>
+            {gpuBrands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>GPU 系列</label>
+          <select value={selSeriesId||""} onChange={e=>{if(e.target.value) handleSeries(parseInt(e.target.value));}} disabled={!selBrandId} style={inp}>
+            <option value="">— 系列 —</option>
+            {gpuSeriesList.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>从型号库选择</label>
+          <select value={gpuModelsList.find(m=>m.name===form.gpu)?.id||""} onChange={e=>{if(e.target.value) handleModel(parseInt(e.target.value));}} disabled={!selSeriesId} style={inp}>
+            <option value="">— 型号 —</option>
+            {gpuModelsList.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>GPU 型号 *</label>
+          <input value={form.gpu} onChange={set("gpu")} placeholder="如：NVIDIA H100 80G SXM5" style={inp} />
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>显存</label>
+          <input value={form.mem} onChange={set("mem")} placeholder="如：80GB HBM3" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>内存带宽</label>
+          <input value={form.bandwidth} onChange={set("bandwidth")} placeholder="如：900GB/s" style={inp} />
+        </div>
+      </div>
+
+      {/* 数量与计费 */}
+      <div style={sl}>数量与计费</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>数量 *</label>
+          <input value={form.count} onChange={set("count")} type="number" min="1" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>计费单位</label>
+          <select value={form.billingUnit} onChange={set("billingUnit")} style={inp}>
+            <option>卡/时</option><option>台/月</option>
+          </select>
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>单价 *</label>
+          <input value={form.price} onChange={set("price")} type="number" min="0" step="0.01" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>可租数量</label>
+          <input value={form.availableQuantity} onChange={set("availableQuantity")} type="number" min="0" placeholder="不填则不限" style={inp} />
+        </div>
+      </div>
+
+      {/* 位置与状态 */}
+      <div style={sl}>位置与状态</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>区域</label>
+          <select value={form.region} onChange={set("region")} style={inp}>
+            <option>国内</option><option>海外</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>交付形式</label>
+          <select value={form.delivery} onChange={set("delivery")} style={inp}>
+            <option>裸金属</option><option>云平台</option>
+          </select>
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>资源状态</label>
+          <select value={form.status} onChange={set("status")} style={inp}>
+            <option>在线</option><option>预租</option><option>下架</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>对外可见</label>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:4}}>
+            <button onClick={()=>setv("isVisible",!form.isVisible)} style={{width:44,height:24,borderRadius:12,border:"none",background:form.isVisible?"#2563eb":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}}>
+              <span style={{position:"absolute",top:2,left:form.isVisible?22:2,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}} />
+            </button>
+            <span style={{fontSize:12,color:"#64748b"}}>{form.isVisible?"可见":"隐藏"}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 补充信息 */}
+      <div style={sl}>补充信息</div>
+      <div>
+        <label style={lbl}>描述 / 配置说明</label>
+        <textarea value={form.desc} onChange={set("desc")} rows={3} placeholder="互联方式、带宽、存储配置等" style={{...inp,resize:"vertical"}} />
+      </div>
+      <div>
+        <label style={lbl}>联系人姓名（选填，覆盖公司默认联系人）</label>
+        <input value={form.contactName} onChange={set("contactName")} placeholder="选填" style={inp} />
+      </div>
+
+      {err && <div style={{color:"#ef4444",fontSize:13,marginBottom:8}}>{err}</div>}
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <button onClick={onClose} style={{...ghostBtn,flex:1}}>取消</button>
+        <button onClick={handle} disabled={saving} style={{...primaryBtn,flex:2,opacity:saving?0.5:1}}>{saving?"保存中...":"保存修改"}</button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Vendor Dashboard ─────────────────────────────────────────────────────────
 function ResourceCard({ r, token, onUpdate, onDelete }) {
   const [status, setStatus] = useState(r.status || (r.available ? "在线" : "下架"));
@@ -481,6 +703,9 @@ function ResourceCard({ r, token, onUpdate, onDelete }) {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  // track local copy so inline controls stay in sync after edit
+  const [localR, setLocalR] = useState(r);
 
   const origStatus = r.status || (r.available?"在线":"下架");
   const dirty = status !== origStatus || Number(count) !== r.count ||
@@ -515,50 +740,63 @@ function ResourceCard({ r, token, onUpdate, onDelete }) {
     } finally { setDeleting(false); setConfirmDelete(false); }
   };
 
+  const handleSaved = (updated) => {
+    setLocalR(updated);
+    setStatus(updated.status || (updated.available?"在线":"下架"));
+    setCount(updated.count);
+    setIsVisible(updated.isVisible !== false);
+    setAvailableQuantity(updated.availableQuantity ?? "");
+    onUpdate(updated.id, updated);
+  };
+
   return (
-    <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",opacity:isVisible?1:0.6}}>
-      <div style={{flex:1,minWidth:200}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
-          <span style={{fontWeight:700,fontSize:14,fontFamily:"'Bebas Neue',cursive",letterSpacing:1,color:"#0f172a"}}>{r.gpu}</span>
-          {!isVisible && <span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:"#f1f5f9",color:"#94a3b8",fontWeight:600}}>不可见</span>}
+    <>
+      {showEdit && <EditResourceModal resource={localR} token={token} onClose={()=>setShowEdit(false)} onSaved={handleSaved} />}
+      <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",opacity:isVisible?1:0.6}}>
+        <div style={{flex:1,minWidth:200}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+            <span style={{fontWeight:700,fontSize:14,fontFamily:"'Bebas Neue',cursive",letterSpacing:1,color:"#0f172a"}}>{localR.gpu}</span>
+            {!isVisible && <span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:"#f1f5f9",color:"#94a3b8",fontWeight:600}}>不可见</span>}
+          </div>
+          <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>{localR.mem}{localR.bandwidth?` · ${localR.bandwidth}`:""} · {localR.region}</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{(localR.tags||[]).map(t=><Tag key={t} t={t} />)}</div>
         </div>
-        <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>{r.mem}{r.bandwidth?` · ${r.bandwidth}`:""} · {r.region}</div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{(r.tags||[]).map(t=><Tag key={t} t={t} />)}</div>
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>状态</div>
-          <select value={status} onChange={e=>setStatus(e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:`1px solid ${sc.border}`,background:sc.bg,color:sc.color,cursor:"pointer"}}>
-            {["在线","预租","下架"].map(s=><option key={s} value={s}>{s}</option>)}
-          </select>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <div>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>状态</div>
+            <select value={status} onChange={e=>setStatus(e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:`1px solid ${sc.border}`,background:sc.bg,color:sc.color,cursor:"pointer"}}>
+              {["在线","预租","下架"].map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>数量（卡）</div>
+            <input type="number" min={1} value={count} onChange={e=>setCount(e.target.value)} style={{width:70,fontSize:12,padding:"4px 8px",borderRadius:6,border:"1px solid #e2e8f0",textAlign:"center"}} />
+          </div>
+          <div>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>可租数量</div>
+            <input type="number" min={0} value={availableQuantity} onChange={e=>setAvailableQuantity(e.target.value)} placeholder="—" style={{width:70,fontSize:12,padding:"4px 8px",borderRadius:6,border:"1px solid #e2e8f0",textAlign:"center"}} />
+          </div>
+          <div>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>对外可见</div>
+            <button onClick={()=>setIsVisible(v=>!v)} style={{width:44,height:24,borderRadius:12,border:"none",background:isVisible?"#2563eb":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
+              <span style={{position:"absolute",top:2,left:isVisible?22:2,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}} />
+            </button>
+          </div>
+          {dirty && <button onClick={save} disabled={saving} style={{...primaryBtn,padding:"6px 14px",fontSize:12,marginTop:18}}>{saving?"保存中":"保存"}</button>}
         </div>
-        <div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>数量（卡）</div>
-          <input type="number" min={1} value={count} onChange={e=>setCount(e.target.value)} style={{width:70,fontSize:12,padding:"4px 8px",borderRadius:6,border:"1px solid #e2e8f0",textAlign:"center"}} />
-        </div>
-        <div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>可租数量</div>
-          <input type="number" min={0} value={availableQuantity} onChange={e=>setAvailableQuantity(e.target.value)} placeholder="—" style={{width:70,fontSize:12,padding:"4px 8px",borderRadius:6,border:"1px solid #e2e8f0",textAlign:"center"}} />
-        </div>
-        <div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>对外可见</div>
-          <button onClick={()=>setIsVisible(v=>!v)} style={{width:44,height:24,borderRadius:12,border:"none",background:isVisible?"#2563eb":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
-            <span style={{position:"absolute",top:2,left:isVisible?22:2,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}} />
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{localR.price}</div>
+            <div style={{fontSize:11,color:"#94a3b8"}}>元/卡/时</div>
+          </div>
+          <button onClick={()=>setShowEdit(true)} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"1px solid #93c5fd",color:"#2563eb",background:"none",cursor:"pointer"}}>编辑</button>
+          <button onClick={handleDelete} disabled={deleting} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:`1px solid ${confirmDelete?"#ef4444":"#e2e8f0"}`,background:confirmDelete?"#fef2f2":"transparent",color:confirmDelete?"#ef4444":"#94a3b8",cursor:"pointer"}}>
+            {deleting?"删除中...":confirmDelete?"确认删除":"删除"}
           </button>
+          {confirmDelete && <button onClick={()=>setConfirmDelete(false)} style={{fontSize:11,color:"#94a3b8",background:"none",border:"none",cursor:"pointer"}}>取消</button>}
         </div>
-        {dirty && <button onClick={save} disabled={saving} style={{...primaryBtn,padding:"6px 14px",fontSize:12,marginTop:18}}>{saving?"保存中":"保存"}</button>}
       </div>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{r.price}</div>
-          <div style={{fontSize:11,color:"#94a3b8"}}>元/卡/时</div>
-        </div>
-        <button onClick={handleDelete} disabled={deleting} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:`1px solid ${confirmDelete?"#ef4444":"#e2e8f0"}`,background:confirmDelete?"#fef2f2":"transparent",color:confirmDelete?"#ef4444":"#94a3b8",cursor:"pointer"}}>
-          {deleting?"删除中...":confirmDelete?"确认删除":"删除"}
-        </button>
-        {confirmDelete && <button onClick={()=>setConfirmDelete(false)} style={{fontSize:11,color:"#94a3b8",background:"none",border:"none",cursor:"pointer"}}>取消</button>}
-      </div>
-    </div>
+    </>
   );
 }
 
