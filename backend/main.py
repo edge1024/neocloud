@@ -191,8 +191,6 @@ async def list_resources(
             r.delivery_type                                                      AS delivery,
             r.description                                                        AS desc,
             r.region,
-            COALESCE(r.billing_unit,'')                                          AS "billingUnit",
-            COALESCE(r.contact_name,'')                                          AS "resContactName",
             TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
