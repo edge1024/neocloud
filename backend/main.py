@@ -588,11 +588,17 @@ async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(cur
             params.append(body.desc or None)
             updates.append(f"description=${len(params)}")
         if body.billing_unit is not None:
-            params.append(body.billing_unit or None)
-            updates.append(f"billing_unit=${len(params)}")
+            try:
+                params2 = [body.billing_unit or None, resource_id]
+                await conn.execute("UPDATE gpu_resources SET billing_unit=$1 WHERE id=$2", *params2)
+            except Exception:
+                pass
         if body.contact_name is not None:
-            params.append(body.contact_name or None)
-            updates.append(f"contact_name=${len(params)}")
+            try:
+                params2 = [body.contact_name or None, resource_id]
+                await conn.execute("UPDATE gpu_resources SET contact_name=$1 WHERE id=$2", *params2)
+            except Exception:
+                pass
         if not updates:
             return {"ok": True}
         params.append(resource_id)

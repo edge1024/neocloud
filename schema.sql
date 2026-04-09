@@ -378,3 +378,10 @@ INSERT INTO docs (category, title, content, sort_order) VALUES
 - 在用户后台生成专属分享链接
 - 分享给客户后，客户无需登录即可查看所有对外可见资源', 0)
 ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- Migration: gpu_resources 补充字段
+-- =============================================================================
+ALTER TABLE gpu_resources
+    ADD COLUMN IF NOT EXISTS billing_unit  VARCHAR(20)  NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS contact_name  VARCHAR(100);

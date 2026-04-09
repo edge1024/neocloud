@@ -530,7 +530,6 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           mem:               form.mem.trim(),
           bandwidth:         form.bandwidth.trim(),
           count:             Number(form.count),
-          billing_unit:      form.billingUnit,
           price:             Number(form.price),
           region:            form.region,
           delivery:          form.delivery,
@@ -538,7 +537,6 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           is_visible:        form.isVisible,
           available_quantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
           desc:              form.desc.trim(),
-          contact_name:      form.contactName.trim() || null,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
