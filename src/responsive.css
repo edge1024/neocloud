@@ -1,0 +1,11 @@
+/* Mobile: hide desktop table, show cards */
+@media (max-width: 768px) {
+  .demand-desktop-table { display: none !important; }
+  .demand-mobile-cards  { display: block !important; }
+}
+
+/* Desktop: show table, hide cards */
+@media (min-width: 769px) {
+  .demand-desktop-table { display: table !important; }
+  .demand-mobile-cards  { display: none !important; }
+}

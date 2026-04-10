@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
+import QRCode from "qrcode";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -1077,31 +1078,60 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
 }
 
 // ─── Share Sheet ──────────────────────────────────────────────────────────────
-function ShareSheet({ title, shareText, shareUrl, onClose }) {
+function ShareSheet({ title, shareText, shareUrl, onClose, qrLabel }) {
   const [copied, setCopied] = useState("");
-  const [showWechat, setShowWechat] = useState(false);
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=0f172a&bgcolor=ffffff&data=${encodeURIComponent(shareUrl)}`;
+  const [view, setView] = useState("main"); // "main" | "wechat" | "qr"
+  const qrCanvasRef = useRef(null);
+
+  useEffect(()=>{
+    if (view==="qr"||view==="wechat") {
+      const canvas = qrCanvasRef.current;
+      if (canvas) QRCode.toCanvas(canvas, shareUrl, {width:200,margin:2,color:{dark:"#0f172a",light:"#ffffff"}}).catch(()=>{});
+    }
+  },[view, shareUrl]);
 
   const copy = (text, label) => { navigator.clipboard?.writeText(text).catch(()=>{}); setCopied(label); setTimeout(()=>setCopied(""),2000); };
-  const open = (url) => window.open(url,"_blank","noopener,noreferrer");
-  const weiboUrl = `https://service.weibo.com/share/share.php?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareText)}`;
-  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText+"\n"+shareUrl)}`;
 
-  if (showWechat) return <>
+  const downloadQr = () => {
+    const canvas = qrCanvasRef.current;
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.download = "demand-qr.png";
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+  };
+
+  if (view==="wechat") return <>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-      <button onClick={()=>setShowWechat(false)} style={{background:"none",border:"none",color:"#94a3b8",fontSize:18,cursor:"pointer",padding:0}}>‹</button>
+      <button onClick={()=>setView("main")} style={{background:"none",border:"none",color:"#94a3b8",fontSize:18,cursor:"pointer",padding:0}}>‹</button>
       <div style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>微信分享</div>
       <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer",marginLeft:"auto"}}>✕</button>
     </div>
     <div style={{textAlign:"center",padding:"8px 0 24px"}}>
       <div style={{display:"inline-block",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:20,marginBottom:18}}>
-        <img src={qrUrl} alt="微信扫码分享" width={180} height={180} style={{display:"block",borderRadius:8}} />
+        <canvas ref={qrCanvasRef} style={{display:"block",borderRadius:8}} />
       </div>
       <div style={{fontSize:14,fontWeight:600,color:"#0f172a",marginBottom:8}}>用微信扫一扫</div>
-      <div style={{fontSize:12,color:"#64748b",marginBottom:24}}>扫描二维码后，点击右上角「…」即可转发分享</div>
+      <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>扫描二维码后，点击右上角「…」即可转发分享</div>
+      <div style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>或截图后分享至微信</div>
       <button onClick={()=>copy(shareUrl,"wechat")} style={{...ghostBtn,padding:"9px 28px",fontSize:13,color:copied==="wechat"?"#2563eb":"#374151"}}>
         {copied==="wechat"?"✓ 已复制链接":"复制链接发给微信好友"}
       </button>
+    </div>
+  </>;
+
+  if (view==="qr") return <>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+      <button onClick={()=>setView("main")} style={{background:"none",border:"none",color:"#94a3b8",fontSize:18,cursor:"pointer",padding:0}}>‹</button>
+      <div style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>生成二维码</div>
+      <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer",marginLeft:"auto"}}>✕</button>
+    </div>
+    <div style={{textAlign:"center",padding:"8px 0 20px"}}>
+      <div style={{display:"inline-block",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:20,marginBottom:14}}>
+        <canvas ref={qrCanvasRef} style={{display:"block",borderRadius:8}} />
+      </div>
+      {qrLabel && <div style={{fontSize:13,color:"#374151",fontWeight:600,marginBottom:16}}>{qrLabel}</div>}
+      <button onClick={downloadQr} style={{...ghostBtn,padding:"9px 28px",fontSize:13}}>下载二维码图片</button>
     </div>
   </>;
 
@@ -1114,15 +1144,11 @@ function ShareSheet({ title, shareText, shareUrl, onClose }) {
       {shareText}
     </div>
     <div style={{display:"flex",gap:10,marginBottom:12}}>
-      <button onClick={()=>setShowWechat(true)} style={{...ghostBtn,flex:1,fontSize:13}}>微信</button>
-      <button onClick={()=>open(weiboUrl)} style={{...ghostBtn,flex:1,fontSize:13}}>微博</button>
-      <button onClick={()=>open(twitterUrl)} style={{...ghostBtn,flex:1,fontSize:13}}>X (Twitter)</button>
+      <button onClick={()=>setView("wechat")} style={{...ghostBtn,flex:1,fontSize:13}}>微信</button>
+      <button onClick={()=>copy(shareUrl,"link")} style={{...ghostBtn,flex:1,fontSize:13,color:copied==="link"?"#2563eb":"#374151"}}>{copied==="link"?"✓ 已复制":"复制链接"}</button>
+      <button onClick={()=>setView("qr")} style={{...ghostBtn,flex:1,fontSize:13}}>生成二维码</button>
       {typeof navigator!=="undefined"&&navigator.share&&
         <button onClick={()=>navigator.share({title,text:shareText,url:shareUrl})} style={{...ghostBtn,flex:1,fontSize:13}}>系统分享</button>}
-    </div>
-    <div style={{display:"flex",gap:10}}>
-      <button onClick={()=>copy(shareUrl,"link")} style={{...ghostBtn,flex:1,fontSize:12,color:copied==="link"?"#2563eb":"#374151"}}>{copied==="link"?"✓ 已复制":"复制链接"}</button>
-      <button onClick={()=>copy(shareText,"text")} style={{...ghostBtn,flex:1,fontSize:12,color:copied==="text"?"#2563eb":"#374151"}}>{copied==="text"?"✓ 已复制":"复制信息卡"}</button>
     </div>
   </>;
 }
@@ -1942,6 +1968,7 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||b.id-a.id)
     .slice(0,3);
   const [expandedDemandId, setExpandedDemandId] = useState(null);
+  const [shareDemandHome, setShareDemandHome] = useState(null);
   const rowStyle = { display:"flex", alignItems:"center", gap:14, padding:"12px 16px", borderBottom:"1px solid #f1f5f9", cursor:"pointer" };
   const thS = { padding:"9px 12px", fontSize:11, fontWeight:700, color:"#64748b", textAlign:"left", letterSpacing:0.5, background:"#f8fafc", borderBottom:"2px solid #e2e8f0", whiteSpace:"nowrap" };
 
@@ -2024,7 +2051,8 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
           <button onClick={onSubscribe} style={{padding:"6px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:8,background:"transparent",color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600}}>订阅更新</button>
         </div>
         <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
+          {/* Desktop table */}
+          <table className="demand-desktop-table" style={{width:"100%",borderCollapse:"collapse"}}>
             <thead>
               <tr>
                 <th style={thS}>GPU 品牌</th>
@@ -2069,24 +2097,16 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
                 if (!expanded) return [mainRow];
 
                 const detailFields = [
-                  ["GPU 品牌", brand],
-                  ["GPU 型号", d.gpu],
-                  ["数量", `${d.count} ${d.count_unit||"卡"}`],
-                  ["区域", d.region||null],
-                  ["机房位置", d.dc_location||null],
+                  ["GPU 品牌", brand],["GPU 型号", d.gpu],["数量", `${d.count} ${d.count_unit||"卡"}`],
+                  ["区域", d.region||null],["机房位置", d.dc_location||null],
                   ["租赁周期", d.rental_months>0?`${d.rental_months} 个月`:null],
-                  ["交付形式", d.delivery_type||d.delivery||null],
-                  ["合同形式", d.contract_type||null],
+                  ["交付形式", d.delivery_type||d.delivery||null],["合同形式", d.contract_type||null],
                   ["付款方式", (d.payment_type&&d.payment_type!=="其他")?d.payment_type:(d.payment_other||null)],
                   ["预算", d.budget_text||(d.budget>0?`≤¥${d.budget}/卡/时`:null)],
-                  ["配置要求", d.config_req||null, true],
-                  ["存储要求", d.storage_req||null],
-                  ["带宽要求", d.bandwidth_req||null],
-                  ["联系人", d.contact_name||d.contact||null],
-                  ["联系电话", d.contact_phone||null],
-                  ["公司", d.company||null],
-                  ["邮箱", d.contact_email||null],
-                  ["备注", d.notes||null, true],
+                  ["配置要求", d.config_req||null, true],["存储要求", d.storage_req||null],
+                  ["带宽要求", d.bandwidth_req||null],["联系人", d.contact_name||d.contact||null],
+                  ["联系电话", d.contact_phone||null],["公司", d.company||null],
+                  ["邮箱", d.contact_email||null],["备注", d.notes||null, true],
                   ["发布时间", d.createdAt],
                 ].filter(([,v])=>v);
 
@@ -2102,6 +2122,9 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
                             </div>
                           ))}
                         </div>
+                        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12,paddingTop:10,borderTop:"1px solid #e2e8f0"}}>
+                          <button onClick={e=>{e.stopPropagation();setShareDemandHome(d);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -2111,6 +2134,30 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
               })}
             </tbody>
           </table>
+          {/* Mobile cards */}
+          <div className="demand-mobile-cards">
+            {recentDemands.map(d=>{
+              const brand = d.gpu_brand||"";
+              const url = `https://www.neocloud.market?demand=${d.id}`;
+              return (
+                <div key={d.id} style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:0.5,color:"#0f172a",marginBottom:4}}>{d.gpu}</div>
+                      {brand && <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>{brand}</div>}
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"4px 12px",fontSize:12,color:"#64748b"}}>
+                        <span>{d.count} {d.count_unit||"卡"}</span>
+                        {d.rental_months>0 && <span>{d.rental_months}个月</span>}
+                        {d.region && <span>{d.region}</span>}
+                        {d.createdAt && <span style={{color:"#94a3b8"}}>{d.createdAt}</span>}
+                      </div>
+                    </div>
+                    <button onClick={e=>{e.stopPropagation();setShareDemandHome(d);}} style={{flexShrink:0,padding:"5px 10px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
         <button onClick={onGoDemands}
           style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
@@ -2118,6 +2165,19 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
           onMouseLeave={e=>{e.currentTarget.style.color="#64748b";e.currentTarget.style.borderColor="#e2e8f0";}}
         >查看所有需求 →</button>
       </div>
+      {shareDemandHome&&(()=>{
+        const d = shareDemandHome;
+        const url = `https://www.neocloud.market?demand=${d.id}`;
+        const qrLabel = `${d.count}${d.count_unit||"卡"} ${d.gpu} 租赁需求`;
+        const parts = [
+          `【GPU需求】${d.gpu} × ${d.count}${d.count_unit||"卡"}`,
+          (d.region||d.dc_location)?`区域：${[d.region,d.dc_location].filter(Boolean).join(" · ")}`:null,
+          d.rental_months>0?`租期：${d.rental_months}个月`:null,
+          d.budget_text?`预算：${d.budget_text}`:null,
+          `来源：${url}`,
+        ].filter(Boolean);
+        return <Modal onClose={()=>setShareDemandHome(null)} width={420}><ShareSheet title={`需求·${d.gpu}`} shareText={parts.join("\n")} shareUrl={url} qrLabel={qrLabel} onClose={()=>setShareDemandHome(null)} /></Modal>;
+      })()}
     </div>
   );
 }
@@ -3540,29 +3600,23 @@ export default function App() {
           </div>
 
           {/* Demand Table */}
-          <div style={{overflowX:"auto",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
             {demands.length===0 ? (
               <div style={{textAlign:"center",padding:"80px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:10}}>📋</div>暂无需求</div>
-            ) : (
-              <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
+            ) : (<>
+              {/* Desktop table */}
+              <table className="demand-desktop-table" style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead>
                   <tr>
-                    {(()=>{
-                      const isMob = typeof window!=="undefined" && window.innerWidth < 640;
-                      const cols = isMob
-                        ? ["型号","数量","租期","区域",""]
-                        : ["GPU 品牌","GPU 型号","数量","租期","区域","发布时间",""];
-                      return cols.map((h,i)=>(
-                        <th key={i} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,background:"#f8fafc",borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap",width:h===""?44:"auto"}}>{h}</th>
-                      ));
-                    })()}
+                    {["GPU 品牌","GPU 型号","数量","租期","区域","发布时间",""].map((h,i)=>(
+                      <th key={i} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,background:"#f8fafc",borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap",width:h===""?44:"auto"}}>{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {demands.flatMap(d=>{
                     const expanded = expandedDemandId===d.id;
-                    const isMob = typeof window!=="undefined" && window.innerWidth < 640;
-                    const colSpan = isMob ? 5 : 7;
+                    const colSpan = 7;
                     const brand = d.gpu_brand||"—";
                     const bdBot = expanded ? "none" : "1px solid #f1f5f9";
                     const bg = expanded ? "rgba(37,99,235,0.04)" : "transparent";
@@ -3575,12 +3629,12 @@ export default function App() {
                         onMouseEnter={e=>{if(!expanded)e.currentTarget.style.background="#f8fafc";}}
                         onMouseLeave={e=>{e.currentTarget.style.background=bg;}}
                       >
-                        {!isMob && <td style={tdS}>{brand}</td>}
+                        <td style={tdS}>{brand}</td>
                         <td style={{...tdS,fontWeight:600,fontFamily:"'Bebas Neue',cursive",letterSpacing:0.5,color:"#0f172a"}}>{d.gpu}</td>
                         <td style={tdS}>{d.count} {d.count_unit||"卡"}</td>
                         <td style={tdS}>{d.rental_months>0?`${d.rental_months}个月`:"—"}</td>
                         <td style={tdS}>{d.region||"—"}</td>
-                        {!isMob && <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{d.createdAt}</td>}
+                        <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{d.createdAt}</td>
                         <td style={{padding:"8px 6px",textAlign:"center",borderBottom:bdBot,width:44}}>
                           <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b",transition:"all 0.18s",cursor:"pointer",userSelect:"none",flexShrink:0}}>
                             {expanded?"▲":"▼"}
@@ -3592,28 +3646,19 @@ export default function App() {
                     if (!expanded) return [mainRow];
 
                     const detailFields = [
-                      ["GPU 品牌", brand],
-                      ["GPU 型号", d.gpu],
-                      ["数量", `${d.count} ${d.count_unit||"卡"}`],
-                      ["区域", d.region||null],
-                      ["机房位置", d.dc_location||null],
+                      ["GPU 品牌", brand],["GPU 型号", d.gpu],["数量", `${d.count} ${d.count_unit||"卡"}`],
+                      ["区域", d.region||null],["机房位置", d.dc_location||null],
                       ["租赁周期", d.rental_months>0?`${d.rental_months} 个月`:null],
-                      ["交付时间", d.delivery_time||null],
-                      ["交付形式", d.delivery_type||d.delivery||null],
+                      ["交付时间", d.delivery_time||null],["交付形式", d.delivery_type||d.delivery||null],
                       ["合同形式", d.contract_type||null],
                       ["付款方式", (d.payment_type&&d.payment_type!=="其他")?d.payment_type:(d.payment_other||null)],
                       ["预算", d.budget_text||(d.budget>0?`≤¥${d.budget}/卡/时`:null)],
-                      ["配置要求", d.config_req||null, true],
-                      ["存储要求", d.storage_req||null],
-                      ["带宽要求", d.bandwidth_req||null],
-                      ["公网 IP", d.public_ip_req||null],
+                      ["配置要求", d.config_req||null, true],["存储要求", d.storage_req||null],
+                      ["带宽要求", d.bandwidth_req||null],["公网 IP", d.public_ip_req||null],
                       ["额外 CPU", d.need_extra_cpu?(d.extra_cpu_config||"是"):null],
-                      ["联系人", d.contact_name||d.contact||null],
-                      ["联系电话", d.contact_phone||null],
-                      ["公司", d.company||null],
-                      ["邮箱", d.contact_email||null],
-                      ["备注", d.notes||null, true],
-                      ["发布时间", d.createdAt],
+                      ["联系人", d.contact_name||d.contact||null],["联系电话", d.contact_phone||null],
+                      ["公司", d.company||null],["邮箱", d.contact_email||null],
+                      ["备注", d.notes||null, true],["发布时间", d.createdAt],
                     ].filter(([,v])=>v);
 
                     const detailRow = (
@@ -3640,7 +3685,64 @@ export default function App() {
                   })}
                 </tbody>
               </table>
-            )}
+              {/* Mobile cards */}
+              <div className="demand-mobile-cards">
+                {demands.map(d=>{
+                  const brand = d.gpu_brand||"";
+                  const expanded = expandedDemandId===d.id;
+                  const detailFields = [
+                    ["GPU 品牌", brand||null],["数量", `${d.count} ${d.count_unit||"卡"}`],
+                    ["区域", d.region||null],["机房位置", d.dc_location||null],
+                    ["租赁周期", d.rental_months>0?`${d.rental_months} 个月`:null],
+                    ["交付时间", d.delivery_time||null],["交付形式", d.delivery_type||d.delivery||null],
+                    ["合同形式", d.contract_type||null],
+                    ["付款方式", (d.payment_type&&d.payment_type!=="其他")?d.payment_type:(d.payment_other||null)],
+                    ["预算", d.budget_text||(d.budget>0?`≤¥${d.budget}/卡/时`:null)],
+                    ["配置要求", d.config_req||null],["存储要求", d.storage_req||null],
+                    ["带宽要求", d.bandwidth_req||null],
+                    ["联系人", d.contact_name||d.contact||null],["联系电话", d.contact_phone||null],
+                    ["公司", d.company||null],["邮箱", d.contact_email||null],
+                    ["备注", d.notes||null],["发布时间", d.createdAt],
+                  ].filter(([,v])=>v);
+                  return (
+                    <div key={d.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                      <div onClick={()=>setExpandedDemandId(expanded?null:d.id)} style={{padding:"14px 16px",cursor:"pointer",background:expanded?"rgba(37,99,235,0.04)":"transparent"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:0.5,color:"#0f172a",marginBottom:4}}>{d.gpu}</div>
+                            {brand && <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>{brand}</div>}
+                            <div style={{display:"flex",flexWrap:"wrap",gap:"4px 12px",fontSize:12,color:"#64748b"}}>
+                              <span>{d.count} {d.count_unit||"卡"}</span>
+                              {d.rental_months>0 && <span>{d.rental_months}个月</span>}
+                              {d.region && <span>{d.region}</span>}
+                              {d.createdAt && <span style={{color:"#94a3b8"}}>{d.createdAt}</span>}
+                            </div>
+                          </div>
+                          <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+                            <button onClick={e=>{e.stopPropagation();setShareDemand(d);}} style={{padding:"5px 10px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
+                            <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b"}}>
+                              {expanded?"▲":"▼"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {expanded && (
+                        <div style={{padding:"12px 16px 16px",background:"rgba(37,99,235,0.03)",borderTop:"2px solid #2563eb"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 16px"}}>
+                            {detailFields.map(([label,value])=>(
+                              <div key={label} style={{minWidth:0}}>
+                                <div style={{fontSize:10,color:"#94a3b8",fontWeight:600,letterSpacing:0.3,marginBottom:2,textTransform:"uppercase"}}>{label}</div>
+                                <div style={{fontSize:12,color:"#374151",lineHeight:1.5,wordBreak:"break-word"}}>{value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>)}
           </div>
 
           {/* Subscribe strip */}
@@ -3681,6 +3783,7 @@ export default function App() {
       {shareDemand&&(()=>{
         const d = shareDemand;
         const url = `https://www.neocloud.market?demand=${d.id}`;
+        const qrLabel = `${d.count}${d.count_unit||"卡"} ${d.gpu} 租赁需求`;
         const parts = [
           `【GPU需求】${d.gpu} × ${d.count}${d.count_unit||"卡"}`,
           (d.region||d.dc_location) ? `区域：${[d.region,d.dc_location].filter(Boolean).join(" · ")}` : null,
@@ -3691,7 +3794,7 @@ export default function App() {
           d.contact_phone ? `电话：${d.contact_phone}` : null,
           `来源：${url}`,
         ].filter(Boolean);
-        return <Modal onClose={()=>setShareDemand(null)} width={420}><ShareSheet title={`需求·${d.gpu}`} shareText={parts.join("\n")} shareUrl={url} onClose={()=>setShareDemand(null)} /></Modal>;
+        return <Modal onClose={()=>setShareDemand(null)} width={420}><ShareSheet title={`需求·${d.gpu}`} shareText={parts.join("\n")} shareUrl={url} qrLabel={qrLabel} onClose={()=>setShareDemand(null)} /></Modal>;
       })()}
 
       {/* Footer */}
