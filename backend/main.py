@@ -258,6 +258,9 @@ async def get_resource(resource_id: int):
     if not row:
         raise HTTPException(status_code=404, detail="资源不存在或已下线")
     return row_to_dict(row)
+
+
+class ResourceCreate(BaseModel):
     vendorId: int
     gpu: str
     count: int
