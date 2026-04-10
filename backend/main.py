@@ -201,6 +201,7 @@ async def list_resources(
             COALESCE(r.need_extra_cpu, FALSE)                                    AS "needExtraCpu",
             COALESCE(r.extra_cpu_config, '')                                     AS "extraCpuConfig",
             COALESCE(r.count_unit, '卡')                                         AS "countUnit",
+            COALESCE(r.currency, '人民币')                                       AS "currency",
             TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
@@ -255,6 +256,7 @@ async def get_resource(resource_id: int):
             COALESCE(r.need_extra_cpu, FALSE)                                    AS "needExtraCpu",
             COALESCE(r.extra_cpu_config, '')                                     AS "extraCpuConfig",
             COALESCE(r.count_unit, '卡')                                         AS "countUnit",
+            COALESCE(r.currency, '人民币')                                       AS "currency",
             TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
@@ -294,6 +296,14 @@ class ResourceCreate(BaseModel):
     available: bool = True
     billing_unit: str = ""
     contact_name: Optional[str] = None
+    count_unit: str = "卡"
+    currency: str = "人民币"
+    dc_location: str = ""
+    storage_req: str = ""
+    bandwidth_req: str = ""
+    public_ip_req: str = ""
+    need_extra_cpu: bool = False
+    extra_cpu_config: str = ""
 
 @app.post("/api/resources", status_code=201)
 async def create_resource(body: ResourceCreate):
@@ -305,15 +315,20 @@ async def create_resource(body: ResourceCreate):
                 (vendor_id, gpu_model, gpu_count, price_per_hour,
                  memory_size, memory_bandwidth, region,
                  delivery_type, description, is_available,
-                 billing_unit, contact_name)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                 billing_unit, contact_name, count_unit, currency,
+                 dc_location, storage_req, bandwidth_req, public_ip_req,
+                 need_extra_cpu, extra_cpu_config)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
             RETURNING id
         """
         resource_id = await conn.fetchval(
             sql, body.vendorId, body.gpu, body.count, body.price,
             body.mem, body.bandwidth, body.region,
             body.delivery, body.desc, body.available,
-            body.billing_unit or None, body.contact_name or None
+            body.billing_unit or None, body.contact_name or None,
+            body.count_unit, body.currency,
+            body.dc_location, body.storage_req, body.bandwidth_req, body.public_ip_req,
+            body.need_extra_cpu, body.extra_cpu_config
         )
         # insert tags
         for tag_name in body.tags:
@@ -658,6 +673,7 @@ class ResourcePatch(BaseModel):
     need_extra_cpu: Optional[bool] = None
     extra_cpu_config: Optional[str] = None
     count_unit: Optional[str] = None
+    currency: Optional[str] = None
 
 @app.patch("/api/resources/{resource_id}", status_code=200)
 async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(current_user)):
@@ -733,6 +749,9 @@ async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(cur
         if body.count_unit is not None:
             params.append(body.count_unit)
             updates.append(f"count_unit=${len(params)}")
+        if body.currency is not None:
+            params.append(body.currency)
+            updates.append(f"currency=${len(params)}")
         if not updates:
             return {"ok": True}
         params.append(resource_id)

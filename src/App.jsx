@@ -255,12 +255,13 @@ function PublishModal({ vendor, onClose, onPublish }) {
   const [err, setErr] = useState("");
   const empty = {
     brand:"", gpuModel:"", vram:"",
-    delivery:"裸金属", count:"", billingUnit:"台/月",
+    delivery:"裸金属", count:"", billingUnit:"台/月", countUnit:"台",
     price:"", currency:"人民币",
     region:"国内", dcLocation:"",
     contract:"", paymentTerms:"",
     status:"可售", onlineTime:"",
     config:"", company:"", contactName:"", contact:"",
+    storageReq:"", bandwidthReq:"", publicIpReq:"",
   };
   const [form, setForm] = useState(empty);
   const [gpuBrands, setGpuBrands] = useState([]);
@@ -305,6 +306,14 @@ function PublishModal({ vendor, onClose, onPublish }) {
       available: form.status === "可售", tags: [], desc: form.config,
       billing_unit: form.billingUnit,
       contact_name: form.contactName || null,
+      count_unit: form.countUnit || "卡",
+      currency: form.currency || "人民币",
+      dc_location: form.dcLocation || "",
+      storage_req: form.storageReq || "",
+      bandwidth_req: form.bandwidthReq || "",
+      public_ip_req: form.publicIpReq || "",
+      need_extra_cpu: false,
+      extra_cpu_config: "",
     };
     try {
       const res = await fetch(`${API}/api/resources`, {
@@ -393,6 +402,14 @@ function PublishModal({ vendor, onClose, onPublish }) {
           <label style={lbl}>可租数量 *</label>
           <input value={form.count} onChange={set("count")} type="number" min="1" placeholder="256" style={inp} />
         </div>
+        <div>
+          <label style={lbl}>数量单位 *</label>
+          <select value={form.countUnit} onChange={set("countUnit")} style={inp}>
+            <option>台</option><option>卡</option>
+          </select>
+        </div>
+      </div>
+      <div style={row2}>
         <div>
           <label style={lbl}>计费单位 *</label>
           <select value={form.billingUnit} onChange={set("billingUnit")} style={inp}>
@@ -483,6 +500,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
     countUnit:     resource.countUnit  || "卡",
     billingUnit:   resource.billingUnit|| "卡/时",
     price:         String(resource.price ?? ""),
+    currency:      resource.currency   || "人民币",
     region:        resource.region     || "国内",
     delivery:      resource.delivery   || "裸金属",
     status:        resource.status     || "在线",
@@ -541,6 +559,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           count:             Number(form.count),
           count_unit:        form.countUnit,
           billing_unit:      form.billingUnit,
+          currency:          form.currency,
           price:             Number(form.price),
           region:            form.region,
           delivery:          form.delivery,
@@ -563,7 +582,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
         ...resource,
         gpu: form.gpu.trim(), mem: form.mem.trim(), bandwidth: form.bandwidth.trim(),
         count: Number(form.count), countUnit: form.countUnit,
-        billingUnit: form.billingUnit, price: Number(form.price),
+        billingUnit: form.billingUnit, currency: form.currency, price: Number(form.price),
         region: form.region, delivery: form.delivery, status: form.status,
         isVisible: form.isVisible,
         availableQuantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
@@ -668,7 +687,12 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           <label style={lbl}>可租数量</label>
           <input value={form.availableQuantity} onChange={set("availableQuantity")} type="number" min="0" placeholder="不填则不限" style={inp} />
         </div>
-        <div />
+        <div>
+          <label style={lbl}>货币</label>
+          <select value={form.currency} onChange={set("currency")} style={inp}>
+            <option>人民币</option><option>美金</option>
+          </select>
+        </div>
       </div>
 
       {/* 位置与状态 */}
@@ -716,13 +740,10 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
       <div style={sl}>配置要求</div>
       <div style={row2}>
         <div>
-          <label style={lbl}>配置要求</label>
-          <textarea value={form.configReq} onChange={set("configReq")} rows={3} placeholder="CPU、内存、互联方式等" style={{...inp,resize:"vertical"}} />
-        </div>
-        <div>
           <label style={lbl}>存储要求</label>
           <textarea value={form.storageReq} onChange={set("storageReq")} rows={3} placeholder="SSD容量、IOPS等" style={{...inp,resize:"vertical"}} />
         </div>
+        <div />
       </div>
       <div style={row2}>
         <div>
@@ -1280,8 +1301,8 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   const [showQr, setShowQr] = useState(false);
   const brand = getGpuBrand(resource.gpu);
   const shareUrl = `${window.location.origin}/resources/${resource.id}`;
-  const billingUnit = resource.billingUnit || "卡/时";
-  const qrLabel = `${resource.count}${billingUnit} ${resource.gpu} 租赁资源`;
+  const countUnit = resource.countUnit || "卡";
+  const qrLabel = `${resource.availableQuantity??resource.count}${countUnit} ${resource.gpu} 租赁资源`;
 
   const vendorName     = resource.vendorName     || vendor?.name          || "";
   const contactName    = resource.resContactName || resource.contactName  || vendor?.contactName  || "";
@@ -1290,13 +1311,13 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   const vendorLocation = resource.vendorLocation || vendor?.location      || "";
   const shareToken     = resource.shareToken     || vendor?.shareToken    || "";
 
-  const shareText = `【GPU 资源】${resource.gpu}\n供应商：${vendorName}  ${resource.region}\n数量：${resource.count} · 计费：${billingUnit}\n状态：${resource.status||"在线"}\n来源：${shareUrl}`;
+  const shareText = `【GPU 资源】${resource.gpu}\n供应商：${vendorName}  ${resource.region}\n数量：${resource.availableQuantity??resource.count} ${countUnit}\n状态：${resource.status||"在线"}\n来源：${shareUrl}`;
 
   // 资源基本信息 — 空值跳过
   const basicItems = [
     ["GPU 品牌",   brand],
     ["GPU 型号",   resource.gpu],
-    ["数量",       `${resource.count} ${billingUnit}`],
+    ["数量",       `${resource.availableQuantity??resource.count} ${countUnit}`],
     ["单价",       resource.price != null ? `¥${resource.price}/卡/时` : null],
     ["区域",       resource.region],
     ["机房位置",   vendorLocation],
@@ -2144,7 +2165,7 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
                     <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{brand}</td>
                     <td style={{...tdS,fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:14,letterSpacing:0.8,color:"#0f172a"}}>{r.gpu}</td>
                     <td style={tdS}>{r.count}</td>
-                    <td style={{...tdS,color:"#64748b"}}>{r.billingUnit||"卡/时"}</td>
+                    <td style={{...tdS,color:"#64748b"}}>{r.countUnit||"卡"}</td>
                     <td style={tdS}>{r.region||"—"}</td>
                     <td style={tdS}>
                       <span style={{display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,background:isOnline?"#dcfce7":"#f1f5f9",color:isOnline?"#16a34a":"#94a3b8"}}>
@@ -2447,13 +2468,13 @@ function VendorSharePage({ shareToken }) {
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {resources.map(r=>{
               const qrUrl = `${window.location.origin}/resources/${r.id}`;
-              const qrLabel = `${r.count}卡 ${r.gpu} 租赁资源`;
+              const qrLabel = `${r.availableQuantity??r.count}${r.countUnit||"卡"} ${r.gpu} 租赁资源`;
               return (
               <div key={r.id} style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <div style={{flex:1,minWidth:200}}>
                   <div style={{fontWeight:700,fontSize:14,fontFamily:"'Bebas Neue',cursive",letterSpacing:1,color:"#0f172a",marginBottom:4}}>{r.gpu}</div>
                   <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>{r.mem}{r.bandwidth?` · ${r.bandwidth}`:""} · {r.region} · {r.delivery}</div>
-                  {r.availableQuantity!=null && <div style={{fontSize:12,color:"#059669",marginBottom:6}}>可租：{r.availableQuantity} 卡</div>}
+                  {r.availableQuantity!=null && <div style={{fontSize:12,color:"#059669",marginBottom:6}}>可租：{r.availableQuantity} {r.countUnit||"卡"}</div>}
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{(r.tags||[]).map(t=><Tag key={t} t={t} />)}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
@@ -3534,11 +3555,11 @@ function ResourceDetailPage({ resourceId }) {
 
   const r = resource;
   const brand = getGpuBrand(r.gpu);
-  const billingUnit = r.billingUnit||"卡/时";
   const qrUrl = `${window.location.origin}/resources/${r.id}`;
-  const qrLabel = `${r.count}${billingUnit} ${r.gpu} 租赁资源`;
+  const countUnit = r.countUnit||"卡";
+  const qrLabel = `${r.availableQuantity??r.count}${countUnit} ${r.gpu} 租赁资源`;
   const fields = [
-    ["GPU 品牌", brand],["GPU 型号", r.gpu],["数量", `${r.count} ${billingUnit}`],
+    ["GPU 品牌", brand],["GPU 型号", r.gpu],["数量", `${r.availableQuantity??r.count} ${countUnit}`],
     ["单价", r.price!=null?`¥${r.price}/卡/时`:null],
     ["区域", r.region||null],["机房位置", r.vendorLocation||null],
     ["状态", r.status||(r.available?"在线":null)],
@@ -3795,11 +3816,11 @@ export default function App() {
               ))}
             </div>
             {hasFilter&&<button onClick={()=>setFilters({model:"",region:""})} style={{padding:"4px 12px",background:"transparent",border:"1px solid #d1d5db",borderRadius:20,color:"#64748b",fontSize:12,cursor:"pointer"}}>重置</button>}
-            <span style={{marginLeft:"auto",fontSize:12,color:"#94a3b8"}}>{gpuGroups.length} 个型号 · {filtered.length} 条记录</span>
+            <span style={{marginLeft:"auto",fontSize:12,color:"#94a3b8"}}>{filtered.length} 条记录</span>
           </div>
 
           {/* Resource table */}
-          {gpuGroups.length===0 ? (
+          {filtered.length===0 ? (
             <div style={{textAlign:"center",padding:"80px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:10}}>🔎</div>没有找到匹配的资源</div>
           ) : (
             <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
@@ -3809,77 +3830,37 @@ export default function App() {
                     <th className="desk-only" style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,whiteSpace:"nowrap"}}>品牌</th>
                     <th style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,whiteSpace:"nowrap"}}>GPU 型号</th>
                     <th style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,whiteSpace:"nowrap"}}>数量</th>
+                    <th style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,whiteSpace:"nowrap"}}>单位</th>
                     <th className="desk-only" style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,whiteSpace:"nowrap"}}>区域</th>
                     <th style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,whiteSpace:"nowrap"}}>状态</th>
-                    <th style={{width:44}}></th>
+                    <th style={{width:36}}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {gpuGroups.flatMap(({gpu,items})=>{
-                    const isGroupExp = expandedGpuGroup===gpu;
-                    const brand = getGpuBrand(gpu);
-                    const totalCount = items.reduce((s,r)=>s+(r.count||0),0);
-                    const onlineCount = items.filter(r=>r.available||(r.status==="在线")).length;
-                    const allRegions = [...new Set(items.map(r=>r.region).filter(Boolean))].join(" / ");
-                    const groupBd = isGroupExp?"none":"1px solid #f1f5f9";
-                    const groupBg = isGroupExp?"rgba(37,99,235,0.04)":"transparent";
-                    const tdG = {padding:"12px 14px",fontSize:13,borderBottom:groupBd};
-
-                    const groupRow = (
-                      <tr key={gpu}
-                        onClick={()=>setExpandedGpuGroup(isGroupExp?null:gpu)}
-                        style={{cursor:"pointer",background:groupBg}}
-                        onMouseEnter={e=>{if(!isGroupExp)e.currentTarget.style.background="#f8fafc";}}
-                        onMouseLeave={e=>{e.currentTarget.style.background=groupBg;}}
+                  {filtered.map(r=>{
+                    const brand = getGpuBrand(r.gpu);
+                    const statusLabel = r.status||(r.available?"在线":"下架");
+                    const isOnline = statusLabel==="在线"||r.available;
+                    return (
+                      <tr key={r.id}
+                        onClick={()=>setDetailModal(r)}
+                        style={{cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}
                       >
-                        <td className="desk-only" style={{...tdG,fontSize:12,color:"#94a3b8"}}>{brand}</td>
-                        <td style={{...tdG,fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:0.8,color:"#0f172a"}}>{gpu}</td>
-                        <td style={{...tdG,color:"#374151"}}>{items.length} 家 · {totalCount} 台/卡</td>
-                        <td className="desk-only" style={{...tdG,fontSize:12,color:"#64748b"}}>{allRegions||"—"}</td>
-                        <td style={{...tdG}}>
-                          <span style={{display:"inline-block",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:onlineCount>0?"#dcfce7":"#f1f5f9",color:onlineCount>0?"#16a34a":"#94a3b8"}}>
-                            {onlineCount>0?`● ${onlineCount} 在线`:"暂无"}
+                        <td className="desk-only" style={{padding:"12px 14px",fontSize:12,color:"#94a3b8"}}>{brand}</td>
+                        <td style={{padding:"12px 14px",fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:14,letterSpacing:0.8,color:"#0f172a"}}>{r.gpu}</td>
+                        <td style={{padding:"12px 14px",fontSize:13,color:"#374151"}}>{r.availableQuantity??r.count}</td>
+                        <td style={{padding:"12px 14px",fontSize:13,color:"#64748b"}}>{r.countUnit||"卡"}</td>
+                        <td className="desk-only" style={{padding:"12px 14px",fontSize:12,color:"#64748b"}}>{r.region||"—"}</td>
+                        <td style={{padding:"12px 14px"}}>
+                          <span style={{display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,background:isOnline?"#dcfce7":"#f1f5f9",color:isOnline?"#16a34a":"#94a3b8"}}>
+                            {statusLabel}
                           </span>
                         </td>
-                        <td style={{padding:"8px 6px",textAlign:"center",borderBottom:groupBd,width:44}}>
-                          <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:isGroupExp?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${isGroupExp?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:isGroupExp?"#2563eb":"#64748b",transition:"all 0.18s",userSelect:"none"}}>
-                            {isGroupExp?"▲":"▼"}
-                          </span>
-                        </td>
+                        <td style={{padding:"12px 6px",textAlign:"center",color:"#94a3b8",fontSize:14}}>›</td>
                       </tr>
                     );
-                    if (!isGroupExp) return [groupRow];
-
-                    const itemRows = items.map(r=>{
-                      const v = vendors.find(x=>x.id===r.vendorId);
-                      const statusLabel = r.status||(r.available?"在线":"下架");
-                      const isOnline = statusLabel==="在线"||r.available;
-                      return (
-                        <tr key={r.id}
-                          onClick={()=>setDetailModal(r)}
-                          style={{cursor:"pointer",background:"rgba(37,99,235,0.02)",borderBottom:"1px solid #f1f5f9"}}
-                          onMouseEnter={e=>e.currentTarget.style.background="rgba(37,99,235,0.05)"}
-                          onMouseLeave={e=>e.currentTarget.style.background="rgba(37,99,235,0.02)"}
-                        >
-                          <td className="desk-only" style={{padding:"10px 4px 10px 14px"}}></td>
-                          <td style={{padding:"10px 14px 10px 20px"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <Avatar text={v?.name?.slice(0,2)||"??"} size={22} />
-                              <span style={{fontSize:13,color:"#374151",fontWeight:500}}>{v?.name||"—"}</span>
-                            </div>
-                          </td>
-                          <td style={{padding:"10px 14px",fontSize:13,color:"#374151"}}>{r.count} {r.billingUnit||"卡/时"}</td>
-                          <td className="desk-only" style={{padding:"10px 14px",fontSize:12,color:"#64748b"}}>{r.region||"—"}</td>
-                          <td style={{padding:"10px 14px"}}>
-                            <span style={{display:"inline-block",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,background:isOnline?"#dcfce7":"#f1f5f9",color:isOnline?"#16a34a":"#94a3b8"}}>
-                              {statusLabel}
-                            </span>
-                          </td>
-                          <td style={{padding:"10px 6px",textAlign:"center",color:"#94a3b8",fontSize:14}}>›</td>
-                        </tr>
-                      );
-                    });
-                    return [groupRow, ...itemRows];
                   })}
                 </tbody>
               </table>
