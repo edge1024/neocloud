@@ -191,6 +191,16 @@ async def list_resources(
             r.delivery_type                                                      AS delivery,
             r.description                                                        AS desc,
             r.region,
+            COALESCE(r.billing_unit, '')                                         AS "billingUnit",
+            COALESCE(r.contact_name, '')                                         AS "resContactName",
+            COALESCE(r.dc_location, '')                                          AS "dcLocation",
+            COALESCE(r.config_req, '')                                           AS "configReq",
+            COALESCE(r.storage_req, '')                                          AS "storageReq",
+            COALESCE(r.bandwidth_req, '')                                        AS "bandwidthReq",
+            COALESCE(r.public_ip_req, '')                                        AS "publicIpReq",
+            COALESCE(r.need_extra_cpu, FALSE)                                    AS "needExtraCpu",
+            COALESCE(r.extra_cpu_config, '')                                     AS "extraCpuConfig",
+            COALESCE(r.count_unit, '卡')                                         AS "countUnit",
             TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
@@ -235,6 +245,16 @@ async def get_resource(resource_id: int):
             r.delivery_type                                                      AS delivery,
             r.description                                                        AS desc,
             r.region,
+            COALESCE(r.billing_unit, '')                                         AS "billingUnit",
+            COALESCE(r.contact_name, '')                                         AS "resContactName",
+            COALESCE(r.dc_location, '')                                          AS "dcLocation",
+            COALESCE(r.config_req, '')                                           AS "configReq",
+            COALESCE(r.storage_req, '')                                          AS "storageReq",
+            COALESCE(r.bandwidth_req, '')                                        AS "bandwidthReq",
+            COALESCE(r.public_ip_req, '')                                        AS "publicIpReq",
+            COALESCE(r.need_extra_cpu, FALSE)                                    AS "needExtraCpu",
+            COALESCE(r.extra_cpu_config, '')                                     AS "extraCpuConfig",
+            COALESCE(r.count_unit, '卡')                                         AS "countUnit",
             TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
@@ -630,6 +650,14 @@ class ResourcePatch(BaseModel):
     desc: Optional[str] = None
     billing_unit: Optional[str] = None
     contact_name: Optional[str] = None
+    dc_location: Optional[str] = None
+    config_req: Optional[str] = None
+    storage_req: Optional[str] = None
+    bandwidth_req: Optional[str] = None
+    public_ip_req: Optional[str] = None
+    need_extra_cpu: Optional[bool] = None
+    extra_cpu_config: Optional[str] = None
+    count_unit: Optional[str] = None
 
 @app.patch("/api/resources/{resource_id}", status_code=200)
 async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(current_user)):
@@ -676,17 +704,35 @@ async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(cur
             params.append(body.desc or None)
             updates.append(f"description=${len(params)}")
         if body.billing_unit is not None:
-            try:
-                params2 = [body.billing_unit or None, resource_id]
-                await conn.execute("UPDATE gpu_resources SET billing_unit=$1 WHERE id=$2", *params2)
-            except Exception:
-                pass
+            params.append(body.billing_unit or None)
+            updates.append(f"billing_unit=${len(params)}")
         if body.contact_name is not None:
-            try:
-                params2 = [body.contact_name or None, resource_id]
-                await conn.execute("UPDATE gpu_resources SET contact_name=$1 WHERE id=$2", *params2)
-            except Exception:
-                pass
+            params.append(body.contact_name or None)
+            updates.append(f"contact_name=${len(params)}")
+        if body.dc_location is not None:
+            params.append(body.dc_location)
+            updates.append(f"dc_location=${len(params)}")
+        if body.config_req is not None:
+            params.append(body.config_req)
+            updates.append(f"config_req=${len(params)}")
+        if body.storage_req is not None:
+            params.append(body.storage_req)
+            updates.append(f"storage_req=${len(params)}")
+        if body.bandwidth_req is not None:
+            params.append(body.bandwidth_req)
+            updates.append(f"bandwidth_req=${len(params)}")
+        if body.public_ip_req is not None:
+            params.append(body.public_ip_req)
+            updates.append(f"public_ip_req=${len(params)}")
+        if body.need_extra_cpu is not None:
+            params.append(body.need_extra_cpu)
+            updates.append(f"need_extra_cpu=${len(params)}")
+        if body.extra_cpu_config is not None:
+            params.append(body.extra_cpu_config)
+            updates.append(f"extra_cpu_config=${len(params)}")
+        if body.count_unit is not None:
+            params.append(body.count_unit)
+            updates.append(f"count_unit=${len(params)}")
         if not updates:
             return {"ok": True}
         params.append(resource_id)

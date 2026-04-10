@@ -480,6 +480,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
     mem:           resource.mem        || "",
     bandwidth:     resource.bandwidth  || "",
     count:         String(resource.count ?? ""),
+    countUnit:     resource.countUnit  || "卡",
     billingUnit:   resource.billingUnit|| "卡/时",
     price:         String(resource.price ?? ""),
     region:        resource.region     || "国内",
@@ -487,7 +488,14 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
     status:        resource.status     || "在线",
     isVisible:     resource.isVisible !== false,
     availableQuantity: resource.availableQuantity != null ? String(resource.availableQuantity) : "",
-    desc:          resource.desc       || "",
+    dcLocation:    resource.dcLocation    || "",
+    desc:          resource.desc          || "",
+    configReq:     resource.configReq     || "",
+    storageReq:    resource.storageReq    || "",
+    bandwidthReq:  resource.bandwidthReq  || "",
+    publicIpReq:   resource.publicIpReq   || "",
+    needExtraCpu:  resource.needExtraCpu  ? "是" : "否",
+    extraCpuConfig:resource.extraCpuConfig|| "",
     contactName:   resource.resContactName || "",
   });
   const [gpuBrands, setGpuBrands] = useState([]);
@@ -531,24 +539,39 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           mem:               form.mem.trim(),
           bandwidth:         form.bandwidth.trim(),
           count:             Number(form.count),
+          count_unit:        form.countUnit,
+          billing_unit:      form.billingUnit,
           price:             Number(form.price),
           region:            form.region,
           delivery:          form.delivery,
           status:            form.status,
           is_visible:        form.isVisible,
           available_quantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
+          dc_location:       form.dcLocation.trim(),
           desc:              form.desc.trim(),
+          config_req:        form.configReq.trim(),
+          storage_req:       form.storageReq.trim(),
+          bandwidth_req:     form.bandwidthReq.trim(),
+          public_ip_req:     form.publicIpReq.trim(),
+          need_extra_cpu:    form.needExtraCpu === "是",
+          extra_cpu_config:  form.extraCpuConfig.trim(),
+          contact_name:      form.contactName.trim(),
         }),
       });
       if (!res.ok) throw new Error(await res.text());
       onSaved({
         ...resource,
         gpu: form.gpu.trim(), mem: form.mem.trim(), bandwidth: form.bandwidth.trim(),
-        count: Number(form.count), billingUnit: form.billingUnit, price: Number(form.price),
+        count: Number(form.count), countUnit: form.countUnit,
+        billingUnit: form.billingUnit, price: Number(form.price),
         region: form.region, delivery: form.delivery, status: form.status,
         isVisible: form.isVisible,
         availableQuantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
+        dcLocation: form.dcLocation.trim(),
         desc: form.desc.trim(), resContactName: form.contactName.trim(),
+        configReq: form.configReq.trim(), storageReq: form.storageReq.trim(),
+        bandwidthReq: form.bandwidthReq.trim(), publicIpReq: form.publicIpReq.trim(),
+        needExtraCpu: form.needExtraCpu === "是", extraCpuConfig: form.extraCpuConfig.trim(),
         available: form.status !== "下架",
       });
       onClose();
@@ -622,21 +645,30 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           <input value={form.count} onChange={set("count")} type="number" min="1" style={inp} />
         </div>
         <div>
-          <label style={lbl}>计费单位</label>
-          <select value={form.billingUnit} onChange={set("billingUnit")} style={inp}>
-            <option>卡/时</option><option>台/月</option>
+          <label style={lbl}>数量单位</label>
+          <select value={form.countUnit} onChange={set("countUnit")} style={inp}>
+            <option>卡</option><option>台</option>
           </select>
         </div>
       </div>
       <div style={row2}>
         <div>
+          <label style={lbl}>计费单位</label>
+          <select value={form.billingUnit} onChange={set("billingUnit")} style={inp}>
+            <option>卡/时</option><option>台/月</option>
+          </select>
+        </div>
+        <div>
           <label style={lbl}>单价 *</label>
           <input value={form.price} onChange={set("price")} type="number" min="0" step="0.01" style={inp} />
         </div>
+      </div>
+      <div style={row2}>
         <div>
           <label style={lbl}>可租数量</label>
           <input value={form.availableQuantity} onChange={set("availableQuantity")} type="number" min="0" placeholder="不填则不限" style={inp} />
         </div>
+        <div />
       </div>
 
       {/* 位置与状态 */}
@@ -649,19 +681,25 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           </select>
         </div>
         <div>
+          <label style={lbl}>机房位置</label>
+          <input value={form.dcLocation} onChange={set("dcLocation")} placeholder="如：北京、上海、新加坡" style={inp} />
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
           <label style={lbl}>交付形式</label>
           <select value={form.delivery} onChange={set("delivery")} style={inp}>
             <option>裸金属</option><option>云平台</option>
           </select>
         </div>
-      </div>
-      <div style={row2}>
         <div>
           <label style={lbl}>资源状态</label>
           <select value={form.status} onChange={set("status")} style={inp}>
             <option>在线</option><option>预租</option><option>下架</option>
           </select>
         </div>
+      </div>
+      <div style={row2}>
         <div>
           <label style={lbl}>对外可见</label>
           <div style={{display:"flex",alignItems:"center",gap:10,marginTop:4}}>
@@ -671,6 +709,44 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
             <span style={{fontSize:12,color:"#64748b"}}>{form.isVisible?"可见":"隐藏"}</span>
           </div>
         </div>
+        <div />
+      </div>
+
+      {/* 配置要求 */}
+      <div style={sl}>配置要求</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>配置要求</label>
+          <textarea value={form.configReq} onChange={set("configReq")} rows={3} placeholder="CPU、内存、互联方式等" style={{...inp,resize:"vertical"}} />
+        </div>
+        <div>
+          <label style={lbl}>存储要求</label>
+          <textarea value={form.storageReq} onChange={set("storageReq")} rows={3} placeholder="SSD容量、IOPS等" style={{...inp,resize:"vertical"}} />
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>带宽要求</label>
+          <input value={form.bandwidthReq} onChange={set("bandwidthReq")} placeholder="如：万兆上行、100Gbps" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>公网 IP 要求</label>
+          <input value={form.publicIpReq} onChange={set("publicIpReq")} placeholder="如：独立公网IP×4" style={inp} />
+        </div>
+      </div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>额外 CPU 需求</label>
+          <select value={form.needExtraCpu} onChange={set("needExtraCpu")} style={inp}>
+            <option>否</option><option>是</option>
+          </select>
+        </div>
+        {form.needExtraCpu === "是" && (
+          <div>
+            <label style={lbl}>CPU 配置补充</label>
+            <input value={form.extraCpuConfig} onChange={set("extraCpuConfig")} placeholder="如：2×Intel Xeon 32C" style={inp} />
+          </div>
+        )}
       </div>
 
       {/* 补充信息 */}

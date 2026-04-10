@@ -383,5 +383,13 @@ ON CONFLICT DO NOTHING;
 -- Migration: gpu_resources 补充字段
 -- =============================================================================
 ALTER TABLE gpu_resources
-    ADD COLUMN IF NOT EXISTS billing_unit  VARCHAR(20)  NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS contact_name  VARCHAR(100);
+    ADD COLUMN IF NOT EXISTS billing_unit     VARCHAR(20)  NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS contact_name     VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS dc_location      VARCHAR(200) NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS config_req       TEXT         NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS storage_req      TEXT         NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS bandwidth_req    VARCHAR(200) NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS public_ip_req    VARCHAR(200) NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS need_extra_cpu   BOOLEAN      NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS extra_cpu_config TEXT         NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS count_unit       VARCHAR(10)  NOT NULL DEFAULT '卡';
