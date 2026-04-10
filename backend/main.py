@@ -216,7 +216,48 @@ async def list_resources(
     return [row_to_dict(r) for r in rows]
 
 
-class ResourceCreate(BaseModel):
+@app.get("/api/resources/{resource_id}")
+async def get_resource(resource_id: int):
+    pool = await get_pool()
+    sql = """
+        SELECT
+            r.id,
+            r.vendor_id                                                          AS "vendorId",
+            r.gpu_model                                                          AS gpu,
+            r.gpu_count                                                          AS count,
+            r.price_per_hour::float                                              AS price,
+            r.memory_size                                                        AS mem,
+            r.memory_bandwidth                                                   AS bandwidth,
+            r.is_available                                                       AS available,
+            COALESCE(r.resource_status, '在线')                                  AS status,
+            r.is_visible                                                         AS "isVisible",
+            r.available_quantity                                                 AS "availableQuantity",
+            r.delivery_type                                                      AS delivery,
+            r.description                                                        AS desc,
+            r.region,
+            TO_CHAR(r.created_at, 'YYYY-MM-DD')                                 AS "createdAt",
+            COALESCE(v.company_name,'')                                          AS "vendorName",
+            COALESCE(v.contact_name,'')                                          AS "contactName",
+            COALESCE(v.contact_phone,'')                                         AS "contactPhone",
+            COALESCE(v.email,'')                                                 AS "contactEmail",
+            COALESCE(v.location,'')                                              AS "vendorLocation",
+            COALESCE(v.slug, v.id::text)                                         AS "shareToken",
+            COALESCE(
+                array_agg(t.name ORDER BY t.id) FILTER (WHERE t.name IS NOT NULL),
+                ARRAY[]::text[]
+            )                                                                    AS tags
+        FROM gpu_resources r
+        LEFT JOIN vendors  v   ON v.id   = r.vendor_id
+        LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
+        LEFT JOIN tags     t   ON t.id   = rtm.tag_id
+        WHERE r.id = $1 AND r.is_visible = TRUE
+        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.email, v.location, v.slug
+    """
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, resource_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="资源不存在或已下线")
+    return row_to_dict(row)
     vendorId: int
     gpu: str
     count: int
@@ -324,6 +365,52 @@ async def list_demands():
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql)
     return [row_to_dict(r) for r in rows]
+
+
+@app.get("/api/demands/{demand_id}")
+async def get_demand(demand_id: int):
+    pool = await get_pool()
+    sql = """
+        SELECT
+            id, gpu,
+            COALESCE(gpu_brand,'')         AS gpu_brand,
+            COALESCE(gpu_other,'')         AS gpu_other,
+            gpu_count                      AS count,
+            COALESCE(count_unit,'卡')      AS count_unit,
+            COALESCE(dc_location,'')       AS dc_location,
+            COALESCE(rental_months,1)      AS rental_months,
+            budget::float, tags, region,
+            delivery_type                  AS delivery,
+            COALESCE(delivery_other,'')    AS delivery_other,
+            COALESCE(contract_type,'')     AS contract_type,
+            COALESCE(payment_type,'')      AS payment_type,
+            COALESCE(payment_other,'')     AS payment_other,
+            COALESCE(config_req,'')        AS config_req,
+            COALESCE(storage_req,'')       AS storage_req,
+            COALESCE(bandwidth_req,'')     AS bandwidth_req,
+            COALESCE(public_ip_req,'')     AS public_ip_req,
+            COALESCE(need_extra_cpu,FALSE) AS need_extra_cpu,
+            COALESCE(extra_cpu_config,'')  AS extra_cpu_config,
+            COALESCE(contact_name,'')      AS contact_name,
+            COALESCE(contact_phone,'')     AS contact_phone,
+            COALESCE(company,'')           AS company,
+            COALESCE(contact_email,'')     AS contact_email,
+            COALESCE(notes,'')             AS notes,
+            COALESCE(delivery_time,'')     AS delivery_time,
+            COALESCE(budget_text,'')       AS budget_text,
+            description                    AS desc,
+            contact,
+            TO_CHAR(created_at,'YYYY-MM-DD') AS "createdAt"
+        FROM demands
+        WHERE id = $1
+          AND COALESCE(is_visible, TRUE) = TRUE
+          AND COALESCE(status, 'online') = 'online'
+    """
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, demand_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="需求不存在或已下线")
+    return row_to_dict(row)
 
 
 class DemandCreate(BaseModel):

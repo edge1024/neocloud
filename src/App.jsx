@@ -1077,6 +1077,73 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
   );
 }
 
+// ─── ShareQrButton — inline button that opens QRCodeModal ─────────────────────
+function ShareQrButton({ url, label }) {
+  const [show, setShow] = useState(false);
+  return <>
+    <button onClick={e=>{e.stopPropagation();setShow(true);}} style={{padding:"4px 10px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:11,cursor:"pointer"}}>二维码</button>
+    {show && <QRCodeModal url={url} label={label} onClose={()=>setShow(false)} />}
+  </>;
+}
+
+// ─── QRCode Modal ─────────────────────────────────────────────────────────────
+function QRCodeModal({ url, label, onClose }) {
+  const canvasRef = useRef(null);
+
+  useEffect(()=>{
+    const canvas = canvasRef.current;
+    if (canvas) QRCode.toCanvas(canvas, url, {width:256,margin:2,color:{dark:"#0f172a",light:"#ffffff"}}).catch(()=>{});
+  },[url]);
+
+  const download = async () => {
+    try {
+      const qrDataUrl = await QRCode.toDataURL(url, {width:256,margin:2,color:{dark:"#0f172a",light:"#ffffff"}});
+      const img = new Image();
+      img.onload = () => {
+        const pad = 20;
+        const textH = label ? 12 + 16 + 16 : 0; // gap + text + bottom pad
+        const c = document.createElement("canvas");
+        c.width = img.width + pad*2;
+        c.height = img.height + pad*2 + textH;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0,0,c.width,c.height);
+        ctx.drawImage(img, pad, pad);
+        if (label) {
+          ctx.font = "16px 'Noto Sans SC',system-ui,sans-serif";
+          ctx.fillStyle = "#333333";
+          ctx.textAlign = "center";
+          ctx.fillText(label, c.width/2, img.height + pad + 12 + 16);
+        }
+        c.toBlob(blob=>{
+          const a = document.createElement("a");
+          a.download = `${label||"qr"}.png`;
+          a.href = URL.createObjectURL(blob);
+          a.click();
+          URL.revokeObjectURL(a.href);
+        },"image/png");
+      };
+      img.src = qrDataUrl;
+    } catch(e) { console.error(e); }
+  };
+
+  return (
+    <Modal onClose={onClose} width={360}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>生成二维码</div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
+      </div>
+      <div style={{textAlign:"center",padding:"4px 0 20px"}}>
+        <div style={{display:"inline-block",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:16,marginBottom:12}}>
+          <canvas ref={canvasRef} style={{display:"block",borderRadius:6}} />
+        </div>
+        {label && <div style={{fontSize:13,color:"#374151",fontWeight:600,marginBottom:20}}>{label}</div>}
+        <button onClick={download} style={{...ghostBtn,padding:"9px 32px",fontSize:13}}>下载图片</button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Share Sheet ──────────────────────────────────────────────────────────────
 function ShareSheet({ title, shareText, shareUrl, onClose, qrLabel }) {
   const [copied, setCopied] = useState("");
@@ -1084,22 +1151,13 @@ function ShareSheet({ title, shareText, shareUrl, onClose, qrLabel }) {
   const qrCanvasRef = useRef(null);
 
   useEffect(()=>{
-    if (view==="qr"||view==="wechat") {
+    if (view==="wechat") {
       const canvas = qrCanvasRef.current;
       if (canvas) QRCode.toCanvas(canvas, shareUrl, {width:200,margin:2,color:{dark:"#0f172a",light:"#ffffff"}}).catch(()=>{});
     }
   },[view, shareUrl]);
 
   const copy = (text, label) => { navigator.clipboard?.writeText(text).catch(()=>{}); setCopied(label); setTimeout(()=>setCopied(""),2000); };
-
-  const downloadQr = () => {
-    const canvas = qrCanvasRef.current;
-    if (!canvas) return;
-    const a = document.createElement("a");
-    a.download = "demand-qr.png";
-    a.href = canvas.toDataURL("image/png");
-    a.click();
-  };
 
   if (view==="wechat") return <>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
@@ -1120,20 +1178,7 @@ function ShareSheet({ title, shareText, shareUrl, onClose, qrLabel }) {
     </div>
   </>;
 
-  if (view==="qr") return <>
-    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-      <button onClick={()=>setView("main")} style={{background:"none",border:"none",color:"#94a3b8",fontSize:18,cursor:"pointer",padding:0}}>‹</button>
-      <div style={{fontSize:16,fontWeight:700,color:"#0f172a"}}>生成二维码</div>
-      <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer",marginLeft:"auto"}}>✕</button>
-    </div>
-    <div style={{textAlign:"center",padding:"8px 0 20px"}}>
-      <div style={{display:"inline-block",background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:20,marginBottom:14}}>
-        <canvas ref={qrCanvasRef} style={{display:"block",borderRadius:8}} />
-      </div>
-      {qrLabel && <div style={{fontSize:13,color:"#374151",fontWeight:600,marginBottom:16}}>{qrLabel}</div>}
-      <button onClick={downloadQr} style={{...ghostBtn,padding:"9px 28px",fontSize:13}}>下载二维码图片</button>
-    </div>
-  </>;
+  if (view==="qr") return <QRCodeModal url={shareUrl} label={qrLabel} onClose={()=>setView("main")} />;
 
   return <>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -1156,9 +1201,11 @@ function ShareSheet({ title, shareText, shareUrl, onClose, qrLabel }) {
 // ─── Resource Detail Modal ────────────────────────────────────────────────────
 function ResourceDetailModal({ resource, vendor, onClose }) {
   const [showShare, setShowShare] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const brand = getGpuBrand(resource.gpu);
-  const shareUrl = `https://www.neocloud.market?resource=${resource.id}`;
+  const shareUrl = `${window.location.origin}/resources/${resource.id}`;
   const billingUnit = resource.billingUnit || "卡/时";
+  const qrLabel = `${resource.count}${billingUnit} ${resource.gpu} 租赁资源`;
 
   const vendorName     = resource.vendorName     || vendor?.name          || "";
   const contactName    = resource.resContactName || resource.contactName  || vendor?.contactName  || "";
@@ -1213,7 +1260,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   return (
     <Modal onClose={onClose} width={560}>
       {showShare
-        ? <ShareSheet title={resource.gpu} shareText={shareText} shareUrl={shareUrl} onClose={()=>setShowShare(false)} />
+        ? <ShareSheet title={resource.gpu} shareText={shareText} shareUrl={shareUrl} qrLabel={qrLabel} onClose={()=>setShowShare(false)} />
         : <>
           {/* Header */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
@@ -1277,10 +1324,12 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
 
           <div style={{display:"flex",gap:10}}>
             <button onClick={()=>setShowShare(true)} style={{...ghostBtn,flex:1}}>分享</button>
+            <button onClick={()=>setShowQr(true)} style={{...ghostBtn,flex:1}}>生成二维码</button>
             <button onClick={onClose} style={{...primaryBtn,flex:2}}>关闭</button>
           </div>
         </>
       }
+      {showQr && <QRCodeModal url={shareUrl} label={qrLabel} onClose={()=>setShowQr(false)} />}
     </Modal>
   );
 }
@@ -2138,8 +2187,7 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
           <div className="demand-mobile-cards">
             {recentDemands.map(d=>{
               const brand = d.gpu_brand||"";
-              const url = `https://www.neocloud.market?demand=${d.id}`;
-              return (
+              const url = `${window.location.origin}/demands/${d.id}`;              return (
                 <div key={d.id} style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                     <div style={{flex:1,minWidth:0}}>
@@ -2167,7 +2215,7 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
       </div>
       {shareDemandHome&&(()=>{
         const d = shareDemandHome;
-        const url = `https://www.neocloud.market?demand=${d.id}`;
+        const url = `${window.location.origin}/demands/${d.id}`;
         const qrLabel = `${d.count}${d.count_unit||"卡"} ${d.gpu} 租赁需求`;
         const parts = [
           `【GPU需求】${d.gpu} × ${d.count}${d.count_unit||"卡"}`,
@@ -2321,7 +2369,10 @@ function VendorSharePage({ shareToken }) {
           </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            {resources.map(r=>(
+            {resources.map(r=>{
+              const qrUrl = `${window.location.origin}/resources/${r.id}`;
+              const qrLabel = `${r.count}卡 ${r.gpu} 租赁资源`;
+              return (
               <div key={r.id} style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <div style={{flex:1,minWidth:200}}>
                   <div style={{fontWeight:700,fontSize:14,fontFamily:"'Bebas Neue',cursive",letterSpacing:1,color:"#0f172a",marginBottom:4}}>{r.gpu}</div>
@@ -2333,9 +2384,13 @@ function VendorSharePage({ shareToken }) {
                   <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{r.price}</div>
                   <div style={{fontSize:11,color:"#94a3b8"}}>元/卡/时</div>
                   <div style={{marginTop:6,fontSize:11,padding:"3px 10px",borderRadius:10,background:"#f0fdf4",color:"#16a34a",display:"inline-block"}}>{r.status}</div>
+                  <div style={{marginTop:8}}>
+                    <ShareQrButton url={qrUrl} label={qrLabel} />
+                  </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -3282,10 +3337,196 @@ function AdminPanel({ onExit, token }) {
   );
 }
 
+// ─── Demand Detail Page ───────────────────────────────────────────────────────
+function DemandDetailPage({ demandId }) {
+  const [demand, setDemand] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(()=>{
+    fetch(`${API}/api/demands/${demandId}`)
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ if(d) setDemand(d); else setNotFound(true); setLoading(false); })
+      .catch(()=>{ setNotFound(true); setLoading(false); });
+  },[demandId]);
+
+  const base = {fontFamily:"'Noto Sans SC',system-ui,sans-serif",minHeight:"100vh",background:"#f1f5f9",color:"#0f172a"};
+  if (loading) return <div style={{...base,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
+    <div style={{width:32,height:32,border:"3px solid #e2e8f0",borderTop:"3px solid #2563eb",borderRadius:"50%",animation:"spin 0.8s linear infinite"}} />
+    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <span style={{fontSize:14,color:"#64748b"}}>加载中...</span>
+  </div>;
+  if (notFound) return <div style={{...base,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>📋</div>
+      <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:8}}>需求不存在或已下线</div>
+      <div style={{fontSize:13,color:"#64748b",marginBottom:24}}>该需求已被删除或暂时下线</div>
+      <a href="/" style={{color:"#2563eb",fontSize:13}}>← 返回首页</a>
+    </div>
+  </div>;
+
+  const d = demand;
+  const brand = d.gpu_brand||"";
+  const qrUrl = `${window.location.origin}/demands/${d.id}`;
+  const qrLabel = `${d.count}${d.count_unit||"卡"} ${d.gpu} 租赁需求`;
+  const fields = [
+    ["GPU 品牌", brand||null],["GPU 型号", d.gpu],["数量", `${d.count} ${d.count_unit||"卡"}`],
+    ["区域", d.region||null],["机房位置", d.dc_location||null],
+    ["租赁周期", d.rental_months>0?`${d.rental_months} 个月`:null],
+    ["交付时间", d.delivery_time||null],["交付形式", d.delivery||d.delivery_type||null],
+    ["合同形式", d.contract_type||null],
+    ["付款方式", (d.payment_type&&d.payment_type!=="其他")?d.payment_type:(d.payment_other||null)],
+    ["预算", d.budget_text||(d.budget>0?`≤¥${d.budget}/卡/时`:null)],
+    ["配置要求", d.config_req||null],["存储要求", d.storage_req||null],
+    ["带宽要求", d.bandwidth_req||null],["公网 IP", d.public_ip_req||null],
+    ["额外 CPU", d.need_extra_cpu?(d.extra_cpu_config||"是"):null],
+    ["备注", d.notes||null],["发布时间", d.createdAt],
+  ].filter(([,v])=>v);
+  const contactFields = [
+    ["联系人", d.contact_name||d.contact||null],["联系电话", d.contact_phone||null],
+    ["公司", d.company||null],["邮箱", d.contact_email||null],
+  ].filter(([,v])=>v);
+
+  return (
+    <div style={base}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box}`}</style>
+      <div style={{background:"rgba(255,255,255,0.97)",borderBottom:"1px solid #e2e8f0",padding:"0 24px",height:56,display:"flex",alignItems:"center",gap:16}}>
+        <img src="/logo.svg" height="30" onClick={()=>window.location.href="/"} style={{cursor:"pointer",display:"block"}} alt="新云集市" />
+        <span style={{fontSize:12,color:"#94a3b8",borderLeft:"1px solid #e2e8f0",paddingLeft:16}}>需求详情</span>
+        <a href="/" style={{marginLeft:"auto",fontSize:12,color:"#64748b",textDecoration:"none"}}>← 返回列表</a>
+      </div>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"28px 20px"}}>
+        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:"24px 24px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+          <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:24,letterSpacing:1.5,color:"#0f172a",marginBottom:4}}>{d.gpu}</div>
+          {brand && <div style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>{brand}</div>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"10px 16px",marginBottom:8}}>
+            {fields.map(([label,value])=>(
+              <div key={label} style={{background:"#f8fafc",borderRadius:8,padding:"9px 12px",border:"1px solid #e2e8f0",minWidth:0}}>
+                <div style={{fontSize:10,color:"#94a3b8",fontWeight:700,letterSpacing:0.5,marginBottom:2,textTransform:"uppercase"}}>{label}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#374151",wordBreak:"break-word"}}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {contactFields.length>0 && (
+          <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:14,padding:"18px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:1,marginBottom:12,textTransform:"uppercase"}}>联系方式</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"10px 32px"}}>
+              {contactFields.map(([k,v])=>(
+                <div key={k} style={{fontSize:13,color:"#1e3a5f"}}>
+                  <span style={{color:"#60a5fa",fontWeight:600,marginRight:6}}>{k}</span>{v}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:10}}>
+          <ShareQrButton url={qrUrl} label={qrLabel} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Resource Detail Page ─────────────────────────────────────────────────────
+function ResourceDetailPage({ resourceId }) {
+  const [resource, setResource] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(()=>{
+    fetch(`${API}/api/resources/${resourceId}`)
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ if(d) setResource(d); else setNotFound(true); setLoading(false); })
+      .catch(()=>{ setNotFound(true); setLoading(false); });
+  },[resourceId]);
+
+  const base = {fontFamily:"'Noto Sans SC',system-ui,sans-serif",minHeight:"100vh",background:"#f1f5f9",color:"#0f172a"};
+  if (loading) return <div style={{...base,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
+    <div style={{width:32,height:32,border:"3px solid #e2e8f0",borderTop:"3px solid #2563eb",borderRadius:"50%",animation:"spin 0.8s linear infinite"}} />
+    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <span style={{fontSize:14,color:"#64748b"}}>加载中...</span>
+  </div>;
+  if (notFound) return <div style={{...base,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>🖥️</div>
+      <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:8}}>资源不存在或已下线</div>
+      <div style={{fontSize:13,color:"#64748b",marginBottom:24}}>该资源已被删除或暂时下线</div>
+      <a href="/" style={{color:"#2563eb",fontSize:13}}>← 返回首页</a>
+    </div>
+  </div>;
+
+  const r = resource;
+  const brand = getGpuBrand(r.gpu);
+  const billingUnit = r.billingUnit||"卡/时";
+  const qrUrl = `${window.location.origin}/resources/${r.id}`;
+  const qrLabel = `${r.count}${billingUnit} ${r.gpu} 租赁资源`;
+  const fields = [
+    ["GPU 品牌", brand],["GPU 型号", r.gpu],["数量", `${r.count} ${billingUnit}`],
+    ["单价", r.price!=null?`¥${r.price}/卡/时`:null],
+    ["区域", r.region||null],["机房位置", r.vendorLocation||null],
+    ["状态", r.status||(r.available?"在线":null)],
+    ["显存", r.mem||null],["内存带宽", r.bandwidth||null],
+    ["交付形式", r.delivery||null],
+    ["可用数量", r.availableQuantity!=null?String(r.availableQuantity):null],
+    ["发布时间", r.createdAt||null],
+  ].filter(([,v])=>v);
+  const contactFields = [
+    ["公司", r.vendorName||null],["联系人", r.contactName||null],
+    ["联系电话", r.contactPhone||null],["邮箱", r.contactEmail||null],
+  ].filter(([,v])=>v);
+
+  return (
+    <div style={base}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box}`}</style>
+      <div style={{background:"rgba(255,255,255,0.97)",borderBottom:"1px solid #e2e8f0",padding:"0 24px",height:56,display:"flex",alignItems:"center",gap:16}}>
+        <img src="/logo.svg" height="30" onClick={()=>window.location.href="/"} style={{cursor:"pointer",display:"block"}} alt="新云集市" />
+        <span style={{fontSize:12,color:"#94a3b8",borderLeft:"1px solid #e2e8f0",paddingLeft:16}}>资源详情</span>
+        <a href="/" style={{marginLeft:"auto",fontSize:12,color:"#64748b",textDecoration:"none"}}>← 返回列表</a>
+      </div>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"28px 20px"}}>
+        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:"24px 24px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+          <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:24,letterSpacing:1.5,color:"#0f172a",marginBottom:4}}>{r.gpu}</div>
+          <span style={{display:"inline-block",marginBottom:16,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(37,99,235,0.08)",color:"#2563eb"}}>{brand}</span>
+          {r.desc && <div style={{fontSize:13,color:"#475569",lineHeight:1.7,borderLeft:"2px solid #bfdbfe",paddingLeft:12,marginBottom:16}}>{r.desc}</div>}
+          {r.tags?.length>0 && <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>{r.tags.map(t=><Tag key={t} t={t} />)}</div>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"10px 16px"}}>
+            {fields.map(([label,value])=>(
+              <div key={label} style={{background:"#f8fafc",borderRadius:8,padding:"9px 12px",border:"1px solid #e2e8f0",minWidth:0}}>
+                <div style={{fontSize:10,color:"#94a3b8",fontWeight:700,letterSpacing:0.5,marginBottom:2,textTransform:"uppercase"}}>{label}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#374151",wordBreak:"break-word"}}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {contactFields.length>0 && (
+          <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:14,padding:"18px 20px",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:1,marginBottom:12,textTransform:"uppercase"}}>联系方式</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"10px 32px"}}>
+              {contactFields.map(([k,v])=>(
+                <div key={k} style={{fontSize:13,color:"#1e3a5f"}}>
+                  <span style={{color:"#60a5fa",fontWeight:600,marginRight:6}}>{k}</span>{v}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:10}}>
+          <ShareQrButton url={qrUrl} label={qrLabel} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const shareMatch = window.location.pathname.match(/^\/vendor\/(.+)$/);
   if (shareMatch) return <VendorSharePage shareToken={shareMatch[1]} />;
+  const demandMatch = window.location.pathname.match(/^\/demands\/(\d+)$/);
+  if (demandMatch) return <DemandDetailPage demandId={demandMatch[1]} />;
+  const resourceMatch = window.location.pathname.match(/^\/resources\/(\d+)$/);
+  if (resourceMatch) return <ResourceDetailPage resourceId={resourceMatch[1]} />;
   const [vendors, setVendors] = useState([]);
   const [resources, setResources] = useState([]);
   const [demands, setDemands] = useState([]);
@@ -3782,7 +4023,7 @@ export default function App() {
       {showSubscribe&&<SubscribeModal onClose={()=>setShowSubscribe(false)} onSuccess={handleSubscribe} />}
       {shareDemand&&(()=>{
         const d = shareDemand;
-        const url = `https://www.neocloud.market?demand=${d.id}`;
+        const url = `${window.location.origin}/demands/${d.id}`;
         const qrLabel = `${d.count}${d.count_unit||"卡"} ${d.gpu} 租赁需求`;
         const parts = [
           `【GPU需求】${d.gpu} × ${d.count}${d.count_unit||"卡"}`,
