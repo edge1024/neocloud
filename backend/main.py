@@ -649,6 +649,99 @@ async def create_subscription(body: SubscriptionCreate):
             body.send_key, _json.dumps(body.filters, ensure_ascii=False)
         )
     return {"id": row["id"]}
+
+
+# ─── Memory Listings ──────────────────────────────────────────────────────────
+class MemoryListingCreate(BaseModel):
+    title: str
+    listing_type: str
+    brand: str
+    generation: str
+    capacity_per_stick: str
+    quantity: int
+    frequency: str
+    condition: str
+    warranty: Optional[str] = None
+    description: Optional[str] = None
+    price_per_stick: Optional[float] = None
+    tax_included: Optional[str] = None
+    invoice_one_to_one: bool = True
+    payment_method: Optional[str] = None
+    shipping_method: Optional[str] = None
+    location: str
+    contact_name: str
+    contact_info: str
+
+@app.get("/api/memory-listings")
+async def list_memory_listings():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM memory_listings WHERE is_visible = true ORDER BY created_at DESC"
+        )
+    return [dict(r) for r in rows]
+
+@app.get("/api/memory-listings/{listing_id}")
+async def get_memory_listing(listing_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM memory_listings WHERE id = $1 AND is_visible = true",
+            listing_id
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="未找到")
+    return dict(row)
+
+@app.post("/api/memory-listings", status_code=201)
+async def create_memory_listing(body: MemoryListingCreate, user=Depends(current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO memory_listings
+               (title, listing_type, brand, generation, capacity_per_stick, quantity,
+                frequency, condition, warranty, description,
+                price_per_stick, tax_included, invoice_one_to_one,
+                payment_method, shipping_method, location,
+                contact_name, contact_info, user_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+               RETURNING *""",
+            body.title, body.listing_type, body.brand, body.generation,
+            body.capacity_per_stick, body.quantity, body.frequency, body.condition,
+            body.warranty, body.description,
+            body.price_per_stick, body.tax_included, body.invoice_one_to_one,
+            body.payment_method, body.shipping_method, body.location,
+            body.contact_name, body.contact_info, user["id"]
+        )
+    return dict(row)
+
+# ─── Admin: Memory ─────────────────────────────────────────────────────────────
+@app.get("/api/admin/memory-listings")
+async def admin_list_memory(user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM memory_listings ORDER BY created_at DESC")
+    return [dict(r) for r in rows]
+
+@app.patch("/api/admin/memory-listings/{listing_id}/visibility")
+async def admin_toggle_memory_visibility(listing_id: str, user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE memory_listings SET is_visible = NOT is_visible WHERE id = $1 RETURNING id, is_visible",
+            listing_id
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="未找到")
+    return dict(row)
+
+@app.delete("/api/admin/memory-listings/{listing_id}", status_code=204)
+async def admin_delete_memory(listing_id: str, user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM memory_listings WHERE id = $1", listing_id)
+
+
 VENDOR_SELECT = """
     SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
            rating::float, review_count AS reviews, location,

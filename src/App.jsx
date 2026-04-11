@@ -2154,8 +2154,276 @@ function SubscribeModal({ onClose, onSuccess }) {
   );
 }
 
+// ─── Memory Publish Modal ─────────────────────────────────────────────────────
+function MemoryPublishModal({ onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    title:"", listing_type:"出售", brand:"三星Samsung", generation:"DDR5",
+    capacity_per_stick:"32GB", quantity:"", frequency:"4800MHz",
+    condition:"全新拆封", warranty:"1年", description:"",
+    price_per_stick:"", tax_included:"含税", invoice_one_to_one:true,
+    payment_method:"款齐发货", shipping_method:"快递（买家承担运费）",
+    location:"", contact_name:"", contact_info:""
+  });
+  const [saving, setSaving] = useState(false);
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const lbl = {display:"block",fontSize:12,color:"#64748b",marginBottom:4};
+  const valid = form.title.trim()&&form.quantity&&form.location.trim()&&form.contact_name.trim()&&form.contact_info.trim();
+
+  const handle = async () => {
+    if (!valid||saving) return;
+    setSaving(true);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`${API}/api/memory-listings`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify({...form,quantity:Number(form.quantity),price_per_stick:form.price_per_stick?Number(form.price_per_stick):null,invoice_one_to_one:form.invoice_one_to_one})
+      });
+      if (res.ok) { const data=await res.json(); onSuccess(data); }
+    } finally { setSaving(false); }
+  };
+
+  const sel = (k,opts) => (
+    <select value={form[k]} onChange={set(k)} style={{...inp,marginBottom:12}}>
+      {opts.map(o=><option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+
+  return (
+    <Modal onClose={onClose} width={620}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div>
+          <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>发布内存条</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:4}}>硬件交易 · 内存条</div>
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
+      </div>
+
+      <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9"}}>产品信息</div>
+      <label style={lbl}>标题 *</label>
+      <input value={form.title} onChange={set("title")} placeholder="例：三星 DDR5 64G 6400MHz 原条出售" style={inp} />
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div><label style={lbl}>类型</label>{sel("listing_type",["出售","求购","出租"])}</div>
+        <div><label style={lbl}>品牌</label>{sel("brand",["三星Samsung","海力士SK Hynix","镁光Micron","金士顿Kingston","其他"])}</div>
+        <div><label style={lbl}>代数</label>{sel("generation",["DDR3","DDR4","DDR5"])}</div>
+        <div><label style={lbl}>单条容量</label>{sel("capacity_per_stick",["8GB","16GB","32GB","64GB","128GB","其他"])}</div>
+        <div><label style={lbl}>数量（条）*</label><input type="number" min="1" value={form.quantity} onChange={set("quantity")} placeholder="数量" style={inp} /></div>
+        <div><label style={lbl}>频率</label>{sel("frequency",["2666MHz","3200MHz","4800MHz","5600MHz","6400MHz","其他"])}</div>
+        <div><label style={lbl}>成色</label>{sel("condition",["全新拆封","99新","95新","9成新","其他"])}</div>
+        <div><label style={lbl}>质保时间</label>{sel("warranty",["无","3个月","6个月","1年","2年","3年"])}</div>
+      </div>
+      <label style={lbl}>补充说明</label>
+      <textarea value={form.description} onChange={set("description")} placeholder="使用时长、测试情况、附赠配件等..." rows={3} style={{...inp,resize:"vertical"}} />
+
+      <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9",marginTop:4}}>交易信息</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div><label style={lbl}>单价（元/条）</label><input type="number" min="0" value={form.price_per_stick} onChange={set("price_per_stick")} placeholder="单价" style={inp} /></div>
+        <div><label style={lbl}>含税</label>{sel("tax_included",["含税","不含税"])}</div>
+        <div>
+          <label style={lbl}>发票一对一</label>
+          <div style={{display:"flex",gap:12,marginBottom:12}}>
+            {[["是",true],["否",false]].map(([l,v])=>(
+              <label key={l} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}>
+                <input type="radio" checked={form.invoice_one_to_one===v} onChange={()=>setForm(f=>({...f,invoice_one_to_one:v}))} />
+                {l}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div><label style={lbl}>交易方式</label>{sel("payment_method",["款齐发货","预付定金","货到付款","其他"])}</div>
+        <div style={{gridColumn:"span 2"}}><label style={lbl}>发货方式</label>{sel("shipping_method",["快递（买家承担运费）","快递（卖家承担运费）","自提","其他"])}</div>
+        <div style={{gridColumn:"span 2"}}><label style={lbl}>所在地 *</label><input value={form.location} onChange={set("location")} placeholder="请输入城市或地区，例：深圳" style={inp} /></div>
+      </div>
+
+      <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9"}}>联系方式</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div><label style={lbl}>联系人 *</label><input value={form.contact_name} onChange={set("contact_name")} placeholder="昵称或姓名" style={inp} /></div>
+        <div><label style={lbl}>联系方式 *</label><input value={form.contact_info} onChange={set("contact_info")} placeholder="手机号 / 微信 / QQ" style={inp} /></div>
+      </div>
+      <div style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>联系方式仅对注册用户可见</div>
+
+      <button onClick={handle} disabled={!valid||saving} style={{...primaryBtn,width:"100%",opacity:(!valid||saving)?0.4:1}}>
+        {saving?"发布中...":"发布"}
+      </button>
+    </Modal>
+  );
+}
+
+// ─── Memory List Page ─────────────────────────────────────────────────────────
+function MemoryPage({ authVendor, onShowAuth, onPublish }) {
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
+  const [showPublish, setShowPublish] = useState(false);
+  const [showQrId, setShowQrId] = useState(null);
+  const thS = {padding:"9px 12px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",letterSpacing:0.5,background:"#f8fafc",borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap"};
+
+  useEffect(()=>{
+    fetch(`${API}/api/memory-listings`).then(r=>r.json()).then(setListings).catch(()=>{}).finally(()=>setLoading(false));
+  },[]);
+
+  const handlePublish = (item) => {
+    setListings(ls=>[item,...ls]);
+    setShowPublish(false);
+    if (onPublish) onPublish(item);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div>
+          <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:22,fontWeight:700,color:"#0f172a"}}>内存条</div>
+          <div style={{fontSize:12,color:"#94a3b8",marginTop:4}}>硬件 · 内存条买卖出租</div>
+        </div>
+        <button onClick={()=>{ if(authVendor) setShowPublish(true); else onShowAuth("login"); }}
+          style={{...primaryBtn,padding:"10px 24px"}}>
+          + 发布
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8"}}>加载中...</div>
+      ) : listings.length===0 ? (
+        <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8",fontSize:14}}>暂无记录，成为第一个发布者吧</div>
+      ) : (
+        <>
+          {/* Desktop table */}
+          <div className="desk-only" style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr>
+                  {["品牌","代数","容量","数量","频率","成色","单价","所在地","类型",""].map((h,i)=>(
+                    <th key={i} style={thS}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {listings.flatMap(item=>{
+                  const expanded = expandedId===item.id;
+                  const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:expanded?"none":"1px solid #f1f5f9"};
+                  const mainRow = (
+                    <tr key={item.id} onClick={()=>setExpandedId(expanded?null:item.id)}
+                      style={{cursor:"pointer",background:expanded?"rgba(37,99,235,0.04)":"transparent"}}
+                      onMouseEnter={e=>{if(!expanded)e.currentTarget.style.background="#f8fafc";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background=expanded?"rgba(37,99,235,0.04)":"transparent";}}>
+                      <td style={{...tdS,fontWeight:600}}>{item.brand}</td>
+                      <td style={tdS}>{item.generation}</td>
+                      <td style={tdS}>{item.capacity_per_stick}</td>
+                      <td style={tdS}>{item.quantity}条</td>
+                      <td style={tdS}>{item.frequency}</td>
+                      <td style={tdS}>{item.condition}</td>
+                      <td style={{...tdS,color:"#2563eb",fontWeight:600}}>{item.price_per_stick?`¥${item.price_per_stick}/条`:"面议"}</td>
+                      <td style={tdS}>{item.location}</td>
+                      <td style={tdS}><span style={{padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e"}}>{item.listing_type}</span></td>
+                      <td style={{padding:"8px 6px",textAlign:"center",borderBottom:expanded?"none":"1px solid #f1f5f9",width:44}}>
+                        <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b",cursor:"pointer",userSelect:"none"}}>
+                          {expanded?"▲":"▼"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                  if (!expanded) return [mainRow];
+                  const qrUrl = `${window.location.origin}?memory=${item.id}`;
+                  const qrLabel = `${item.quantity}条 ${item.brand} ${item.generation} ${item.capacity_per_stick} ${item.listing_type}`;
+                  return [mainRow,(
+                    <tr key={`${item.id}-detail`}>
+                      <td colSpan={10} style={{padding:"20px 24px",background:"rgba(37,99,235,0.02)",borderBottom:"1px solid #e2e8f0"}}>
+                        <MemoryDetailInner item={item} authVendor={authVendor} onShowAuth={onShowAuth} qrUrl={qrUrl} qrLabel={qrLabel} />
+                      </td>
+                    </tr>
+                  )];
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="mob-show" style={{display:"none",flexDirection:"column",gap:12}}>
+            {listings.map(item=>(
+              <div key={item.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div style={{fontWeight:700,fontSize:15,color:"#0f172a"}}>{item.brand} {item.generation} {item.capacity_per_stick}</div>
+                  <span style={{padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e",flexShrink:0}}>{item.listing_type}</span>
+                </div>
+                <div style={{fontSize:13,color:"#64748b",marginBottom:8}}>{item.frequency} · {item.condition} · {item.quantity}条 · {item.location}</div>
+                <div style={{fontSize:15,fontWeight:700,color:"#2563eb",marginBottom:12}}>{item.price_per_stick?`¥${item.price_per_stick}/条`:"面议"}</div>
+                <button onClick={()=>setExpandedId(expandedId===item.id?null:item.id)}
+                  style={{width:"100%",padding:"8px",border:"1px solid #e2e8f0",borderRadius:8,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer"}}>
+                  {expandedId===item.id?"收起详情 ▲":"查看详情 ▼"}
+                </button>
+                {expandedId===item.id && (
+                  <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid #f1f5f9"}}>
+                    <MemoryDetailInner item={item} authVendor={authVendor} onShowAuth={onShowAuth}
+                      qrUrl={`${window.location.origin}?memory=${item.id}`}
+                      qrLabel={`${item.quantity}条 ${item.brand} ${item.generation} ${item.capacity_per_stick} ${item.listing_type}`} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {showPublish && <MemoryPublishModal onClose={()=>setShowPublish(false)} onSuccess={handlePublish} />}
+      {showQrId && <QRCodeModal url={showQrId.url} label={showQrId.label} onClose={()=>setShowQrId(null)} />}
+    </div>
+  );
+}
+
+function MemoryDetailInner({ item, authVendor, onShowAuth, qrUrl, qrLabel }) {
+  const [showQr, setShowQr] = useState(false);
+  const fields = [
+    ["标题", item.title],
+    ["类型", item.listing_type],
+    ["品牌", item.brand],
+    ["代数", item.generation],
+    ["单条容量", item.capacity_per_stick],
+    ["数量", `${item.quantity}条`],
+    ["频率", item.frequency],
+    ["成色", item.condition],
+    ["质保", item.warranty||"—"],
+    ["单价", item.price_per_stick?`¥${item.price_per_stick}/条`:"面议"],
+    ["含税", item.tax_included||"—"],
+    ["发票一对一", item.invoice_one_to_one?"是":"否"],
+    ["交易方式", item.payment_method||"—"],
+    ["发货方式", item.shipping_method||"—"],
+    ["所在地", item.location],
+  ];
+  return (
+    <div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8,marginBottom:16}}>
+        {fields.map(([k,v])=>(
+          <div key={k} style={{display:"flex",gap:8}}>
+            <span style={{fontSize:12,color:"#94a3b8",flexShrink:0}}>{k}</span>
+            <span style={{fontSize:12,color:"#374151",fontWeight:500}}>{v}</span>
+          </div>
+        ))}
+      </div>
+      {item.description && (
+        <div style={{fontSize:13,color:"#374151",background:"#f8fafc",borderRadius:8,padding:"10px 14px",marginBottom:16,lineHeight:1.6}}>{item.description}</div>
+      )}
+      <div style={{background:"#f8fafc",borderRadius:10,padding:"14px 16px",marginBottom:14,border:"1px solid #e2e8f0"}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#0f172a",marginBottom:8}}>联系方式</div>
+        {authVendor ? (
+          <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
+            <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系人</span>{item.contact_name}</div>
+            <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系方式</span>{item.contact_info}</div>
+          </div>
+        ) : (
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:13,color:"#94a3b8"}}>登录后查看联系方式</span>
+            <button onClick={()=>onShowAuth("login")} style={{padding:"5px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:6,background:"transparent",color:"#2563eb",fontSize:12,cursor:"pointer",fontWeight:600}}>登录</button>
+          </div>
+        )}
+      </div>
+      <button onClick={()=>setShowQr(true)} style={{...ghostBtn,padding:"7px 20px",fontSize:12}}>生成二维码</button>
+      {showQr && <QRCodeModal url={qrUrl} label={qrLabel} onClose={()=>setShowQr(false)} />}
+    </div>
+  );
+}
+
 // ─── Home Page ────────────────────────────────────────────────────────────────
-function HomePage({ vendors, resources, demands, subscribers, onGoResources, onGoDemands, onResourceClick, onSubscribe }) {
+function HomePage({ vendors, resources, demands, memoryListings, subscribers, onGoResources, onGoDemands, onGoMemory, onResourceClick, onSubscribe }) {
   const recentResources = [...resources]
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||b.id-a.id)
     .slice(0,3);
@@ -2360,6 +2628,53 @@ function HomePage({ vendors, resources, demands, subscribers, onGoResources, onG
           onMouseLeave={e=>{e.currentTarget.style.color="#64748b";e.currentTarget.style.borderColor="#e2e8f0";}}
         >查看所有需求 →</button>
       </div>
+
+      <div style={{borderTop:"1px solid #e2e8f0",marginBottom:40,marginTop:40}} />
+
+      {/* 最新内存条 */}
+      {memoryListings && memoryListings.length>0 && (
+        <div style={{marginBottom:48}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:12}}>
+              <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>最新内存条</h2>
+              <span style={{fontSize:12,color:"#94a3b8"}}>共 {memoryListings.length} 条</span>
+            </div>
+          </div>
+          <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr>
+                  {["品牌","代数","容量","数量","类型","所在地"].map((h,i)=>(
+                    <th key={i} style={thS}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {memoryListings.slice(0,3).map((item,i)=>{
+                  const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:i===Math.min(memoryListings.length,3)-1?"none":"1px solid #f1f5f9"};
+                  return (
+                    <tr key={item.id} onClick={onGoMemory} style={{cursor:"pointer"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <td style={{...tdS,fontWeight:600}}>{item.brand}</td>
+                      <td style={tdS}>{item.generation}</td>
+                      <td style={tdS}>{item.capacity_per_stick}</td>
+                      <td style={tdS}>{item.quantity}条</td>
+                      <td style={tdS}><span style={{padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e"}}>{item.listing_type}</span></td>
+                      <td style={tdS}>{item.location}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button onClick={onGoMemory}
+            style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
+            onMouseEnter={e=>{e.currentTarget.style.color="#2563eb";e.currentTarget.style.borderColor="rgba(37,99,235,0.3)";}}
+            onMouseLeave={e=>{e.currentTarget.style.color="#64748b";e.currentTarget.style.borderColor="#e2e8f0";}}
+          >查看所有内存条 →</button>
+        </div>
+      )}
       {shareDemandHome&&(()=>{
         const d = shareDemandHome;
         const url = `${window.location.origin}/demands/${d.id}`;
@@ -2680,6 +2995,66 @@ function DocsPage({ authVendor, authAdmin, onShowAuth }) {
 }
 
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
+function AdminMemoryPanel({ token }) {
+  const [memList, setMemList] = useState([]);
+  const [memLoading, setMemLoading] = useState(true);
+  useEffect(()=>{
+    fetch(`${API}/api/admin/memory-listings`,{headers:{Authorization:`Bearer ${token}`}})
+      .then(r=>r.json()).then(d=>{setMemList(d);setMemLoading(false);}).catch(()=>setMemLoading(false));
+  },[]);
+  if(memLoading) return <div style={{padding:40,textAlign:"center",color:"#94a3b8",fontSize:13}}>加载中…</div>;
+  return (
+    <div>
+      <div style={{fontSize:14,fontWeight:700,color:"#0f172a",marginBottom:16}}>内存条列表（共 {memList.length} 条）</div>
+      {memList.length===0 ? <div style={{color:"#94a3b8",fontSize:13}}>暂无数据</div> : (
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
+                {["标题","品牌","代数","容量","数量","价格","所在地","类型","状态","操作"].map(h=>(
+                  <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748b",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {memList.map(m=>(
+                <tr key={m.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                  <td style={{padding:"8px 10px",color:"#0f172a",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.brand}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.generation}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.capacity_per_stick}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.quantity}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.price_per_stick!=null?`¥${m.price_per_stick}`:"面议"}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.location}</td>
+                  <td style={{padding:"8px 10px",color:"#374151"}}>{m.listing_type}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <span style={{padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,background:m.is_visible?"#dcfce7":"#f1f5f9",color:m.is_visible?"#16a34a":"#94a3b8"}}>
+                      {m.is_visible?"显示":"隐藏"}
+                    </span>
+                  </td>
+                  <td style={{padding:"8px 10px",whiteSpace:"nowrap"}}>
+                    <button onClick={async()=>{
+                      const res=await fetch(`${API}/api/admin/memory-listings/${m.id}/visibility`,{method:"PATCH",headers:{Authorization:`Bearer ${token}`}});
+                      if(res.ok){const d=await res.json();setMemList(ls=>ls.map(x=>x.id===m.id?{...x,is_visible:d.is_visible}:x));}
+                    }} style={{padding:"4px 10px",borderRadius:6,border:"none",background:"#f1f5f9",color:"#374151",fontSize:12,cursor:"pointer",marginRight:6}}>
+                      {m.is_visible?"隐藏":"显示"}
+                    </button>
+                    <button onClick={async()=>{
+                      if(!confirm("确认删除？")) return;
+                      const res=await fetch(`${API}/api/admin/memory-listings/${m.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+                      if(res.ok) setMemList(ls=>ls.filter(x=>x.id!==m.id));
+                    }} style={{padding:"4px 10px",borderRadius:6,border:"none",background:"none",color:"#dc2626",fontSize:12,cursor:"pointer"}}>删除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanel({ onExit, token }) {
   const [links, setLinks] = useState([]);
   const [form, setForm] = useState({ title:"", url:"", sort_order:"0" });
@@ -2900,7 +3275,7 @@ function AdminPanel({ onExit, token }) {
     setGpuModelsList(m=>m.filter(x=>x.id!==id));
   };
 
-  const adminTabs = [["links","相关链接"],["vendors","用户管理"],["demands","需求管理"],["gpu","GPU型号库"],["docs","文档管理"]];
+  const adminTabs = [["links","相关链接"],["vendors","用户管理"],["demands","需求管理"],["gpu","GPU型号库"],["docs","文档管理"],["memory","内存条管理"]];
 
   const openEditDemand = (d) => {
     setEditDemand(d);
@@ -3479,6 +3854,9 @@ function AdminPanel({ onExit, token }) {
             )}
           </>
         )}
+
+        {/* ── 内存条管理 ── */}
+        {adminTab==="memory" && <AdminMemoryPanel token={token} />}
       </div>
     </div>
   );
@@ -3703,6 +4081,7 @@ export default function App() {
   const [shareDemand, setShareDemand] = useState(null);
   const [expandedDemandId, setExpandedDemandId] = useState(null);
   const [expandVendorId, setExpandVendorId] = useState(null);
+  const [memoryListings, setMemoryListings] = useState([]);
 
   // 会话恢复
   useEffect(()=>{
@@ -3726,12 +4105,14 @@ export default function App() {
       safe(fetch(`${API}/api/demands`).then(r=>r.json())),
       safe(fetch(`${API}/api/subscribers/count`).then(r=>r.json())),
       safe(fetch(`${API}/api/related-links`).then(r=>r.json())),
-    ]).then(([v,r,d,s,l])=>{
+      safe(fetch(`${API}/api/memory-listings`).then(r=>r.json())),
+    ]).then(([v,r,d,s,l,m])=>{
       if(v) setVendors(v);
       if(r) setResources(r);
       if(d) setDemands(d);
       if(s) { setResSubCount(s.resources); setDemSubCount(s.demands); }
       if(l) setLinks(l);
+      if(m) setMemoryListings(m);
       setLoading(false);
       // URL 深链（数据加载后处理）
       const p = new URLSearchParams(window.location.search);
@@ -3804,7 +4185,7 @@ export default function App() {
       <nav style={{borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:60,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
         <img src="/logo.svg" height="36" onClick={()=>setTabView("home")} style={{cursor:"pointer",flexShrink:0,display:"block"}} alt="新云集市" />
         <div className="desk-only" style={{display:"flex",gap:2}}>
-          {[["home","首页"],["resources","资源列表"],["demands","需求列表"],["docs","文档"]/* ["links","相关链接"],["contact","联系我们"] */].map(([v,l])=>(
+          {[["home","首页"],["resources","资源列表"],["demands","需求列表"],["hardware","硬件"],["docs","文档"]/* ["links","相关链接"],["contact","联系我们"] */].map(([v,l])=>(
             <button key={v} onClick={()=>setTabView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
               {l}
             </button>
@@ -3832,7 +4213,7 @@ export default function App() {
         </div>
       </nav>
       <div className={`mob-menu${menuOpen?" open":""}`}>
-        {[["home","首页"],["resources","资源列表"],["demands","需求列表"],["docs","文档"]/* ["links","相关链接"],["contact","联系我们"] */].map(([v,l])=>(
+        {[["home","首页"],["resources","资源列表"],["demands","需求列表"],["hardware","硬件"],["docs","文档"]/* ["links","相关链接"],["contact","联系我们"] */].map(([v,l])=>(
           <button key={v} onClick={()=>{setTabView(v);setMenuOpen(false);}}
             style={{padding:"12px 16px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:14,fontWeight:600,textAlign:"left",minHeight:44}}>
             {l}
@@ -3844,9 +4225,14 @@ export default function App() {
 
         {/* Home */}
         {tabView==="home" && (
-          <HomePage vendors={vendors} resources={resources} demands={demands} subscribers={[]} resSubCount={resSubCount} demSubCount={demSubCount}
-            onGoResources={()=>setTabView("resources")} onGoDemands={()=>setTabView("demands")}
+          <HomePage vendors={vendors} resources={resources} demands={demands} memoryListings={memoryListings} subscribers={[]} resSubCount={resSubCount} demSubCount={demSubCount}
+            onGoResources={()=>setTabView("resources")} onGoDemands={()=>setTabView("demands")} onGoMemory={()=>setTabView("hardware")}
             onResourceClick={r=>{setTabView("resources");setDetailModal(r);}} onSubscribe={()=>setShowSubscribe(true)} />
+        )}
+
+        {/* Hardware */}
+        {tabView==="hardware" && (
+          <MemoryPage authVendor={authVendor} onShowAuth={setShowAuth} onPublish={m=>setMemoryListings(ls=>[m,...ls])} />
         )}
 
         {/* Resources */}
@@ -4162,7 +4548,7 @@ export default function App() {
         <div style={{maxWidth:1200,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
           <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:18,letterSpacing:2,color:"#1d4ed8"}}>新云集市</div>
           <div style={{display:"flex",gap:24,alignItems:"center"}}>
-            {[["文档","docs"],["相关链接","links"],["联系我们","contact"]].map(([label,view])=>(
+            {[["内存条","hardware"],["文档","docs"],["相关链接","links"],["联系我们","contact"]].map(([label,view])=>(
               <span key={label} onClick={()=>setTabView(view)} style={{fontSize:13,color:"#64748b",cursor:"pointer"}}
                 onMouseEnter={e=>e.currentTarget.style.color="#2563eb"}
                 onMouseLeave={e=>e.currentTarget.style.color="#64748b"}
