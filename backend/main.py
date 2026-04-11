@@ -12,6 +12,8 @@ import bcrypt as _bcrypt_lib
 import asyncpg
 import os
 import secrets
+import asyncio
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -357,6 +359,7 @@ async def create_resource(body: ResourceCreate):
             GROUP BY r.id
             """, resource_id
         )
+    asyncio.create_task(notify_resource(row_to_dict(row)))
     return row_to_dict(row)
 
 
@@ -548,6 +551,7 @@ async def create_demand(body: DemandCreate):
             body.budget, body.tags, body.region, body.notes, contact_val, body.vendor_id,
             body.delivery_time or None, body.budget_text or None
         )
+    asyncio.create_task(notify_demand(row_to_dict(row)))
     return row_to_dict(row)
 
 
@@ -584,7 +588,67 @@ async def create_subscriber(body: SubscriberCreate):
     return row_to_dict(row)
 
 
-# ─── Auth ──────────────────────────────────────────────────────────────────────
+# ─── Subscriptions & WeChat Push ──────────────────────────────────────────────
+async def push_wechat(send_key: str, title: str, desp: str):
+    """调用 Server酱 推送微信通知，失败静默忽略"""
+    url = f"https://sctapi.ftqq.com/{send_key}.send"
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            await client.post(url, data={"title": title, "desp": desp})
+    except Exception:
+        pass
+
+def _matches(filters: dict, item: dict) -> bool:
+    """检查 item 是否匹配订阅过滤条件"""
+    if kw := filters.get("gpu"):
+        if kw.lower() not in (item.get("gpu") or "").lower():
+            return False
+    if region := filters.get("region"):
+        if region and region != item.get("region", ""):
+            return False
+    if tags := filters.get("tags"):
+        item_tags = item.get("tags") or []
+        if not any(t in item_tags for t in tags):
+            return False
+    return True
+
+async def notify_resource(resource: dict):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT send_key, filters FROM subscriptions")
+    title = "GPU Market 有新资源"
+    desp = f"**{resource.get('gpu')}**\n价格：¥{resource.get('price')}/卡/时\n地区：{resource.get('region','—')}\n数量：{resource.get('count','—')} {resource.get('countUnit','卡')}"
+    tasks = [push_wechat(r["send_key"], title, desp)
+             for r in rows if _matches(dict(r["filters"] or {}), resource)]
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+async def notify_demand(demand: dict):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT send_key, filters FROM subscriptions")
+    title = "GPU Market 有新需求"
+    budget = demand.get("budget") or demand.get("budget_text") or "面议"
+    desp = f"**{demand.get('gpu')}** × {demand.get('count','—')}\n预算：{budget}\n地区：{demand.get('region','—')}"
+    tasks = [push_wechat(r["send_key"], title, desp)
+             for r in rows if _matches(dict(r["filters"] or {}), demand)]
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+class SubscriptionCreate(BaseModel):
+    send_key: str
+    filters: dict = {}
+
+@app.post("/api/subscriptions", status_code=201)
+async def create_subscription(body: SubscriptionCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO subscriptions (send_key, filters) VALUES ($1, $2::jsonb) RETURNING id, created_at",
+            body.send_key, _json.dumps(body.filters, ensure_ascii=False)
+        )
+    return {"id": row["id"]}
 VENDOR_SELECT = """
     SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
            rating::float, review_count AS reviews, location,

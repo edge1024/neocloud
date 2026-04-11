@@ -2062,43 +2062,92 @@ function VendorRow({ vendor, resources, onDetailClick, onContactClick, autoExpan
 
 // ─── Subscribe Modal ──────────────────────────────────────────────────────────
 function SubscribeModal({ onClose, onSuccess }) {
+  const [tab, setTab] = useState("wechat");
   const [email, setEmail] = useState("");
   const [topics, setTopics] = useState(["resources","demands"]);
+  const [sendKey, setSendKey] = useState("");
+  const [gpuKw, setGpuKw] = useState("");
+  const [region, setRegion] = useState("");
+  const [selTags, setSelTags] = useState([]);
   const [done, setDone] = useState(false);
+  const [doneTab, setDoneTab] = useState("wechat");
+
   const toggleTopic = t => setTopics(ts=>ts.includes(t)?ts.filter(x=>x!==t):[...ts,t]);
-  const valid = email.trim().includes("@") && topics.length>0;
+  const toggleTag   = t => setSelTags(ts=>ts.includes(t)?ts.filter(x=>x!==t):[...ts,t]);
+
+  const emailValid  = email.trim().includes("@") && topics.length>0;
+  const wechatValid = sendKey.trim().length>0;
+  const valid = tab==="email" ? emailValid : wechatValid;
 
   const handle = () => {
     if (!valid) return;
-    onSuccess({ id:Date.now(), email:email.trim(), topics });
+    if (tab==="email") {
+      onSuccess({ type:"email", email:email.trim(), topics });
+    } else {
+      const filters = {};
+      if (gpuKw.trim()) filters.gpu = gpuKw.trim();
+      if (region) filters.region = region;
+      if (selTags.length>0) filters.tags = selTags;
+      onSuccess({ type:"wechat", sendKey:sendKey.trim(), filters });
+    }
+    setDoneTab(tab);
     setDone(true);
   };
 
   return (
-    <Modal onClose={onClose} width={420}>
+    <Modal onClose={onClose} width={440}>
       {!done ? <>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
           <div>
             <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>订阅更新</div>
             <div style={{fontSize:12,color:"#64748b",marginTop:4}}>第一时间获取新资源上线和需求发布通知</div>
           </div>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
-        <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:6}}>邮箱地址 *</label>
-        <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" type="email" style={inp} />
-        <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:10}}>订阅内容</label>
-        <div style={{display:"flex",gap:10,marginBottom:24}}>
-          {[["resources","🖥️ 新资源上线"],["demands","📋 新需求发布"]].map(([t,l])=>(
-            <button key={t} type="button" onClick={()=>toggleTopic(t)} style={{flex:1,padding:"12px 10px",borderRadius:10,border:`1px solid ${topics.includes(t)?"rgba(37,99,235,0.4)":"#e2e8f0"}`,background:topics.includes(t)?"rgba(37,99,235,0.06)":"transparent",color:topics.includes(t)?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:topics.includes(t)?600:400}}>
-              {topics.includes(t)?"✓ ":""}{l}
+        <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid #e2e8f0"}}>
+          {[["email","📧 邮件订阅"],["wechat","📱 微信推送"]].map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t)} style={{padding:"8px 16px",border:"none",background:"none",borderBottom:`2px solid ${tab===t?"#2563eb":"transparent"}`,color:tab===t?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:tab===t?600:400,marginBottom:-1}}>
+              {l}
             </button>
           ))}
         </div>
+        {tab==="email" ? <>
+          <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:6}}>邮箱地址 *</label>
+          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" type="email" style={inp} />
+          <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:10}}>订阅内容</label>
+          <div style={{display:"flex",gap:10,marginBottom:24}}>
+            {[["resources","🖥️ 新资源上线"],["demands","📋 新需求发布"]].map(([t,l])=>(
+              <button key={t} type="button" onClick={()=>toggleTopic(t)} style={{flex:1,padding:"12px 10px",borderRadius:10,border:`1px solid ${topics.includes(t)?"rgba(37,99,235,0.4)":"#e2e8f0"}`,background:topics.includes(t)?"rgba(37,99,235,0.06)":"transparent",color:topics.includes(t)?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:topics.includes(t)?600:400}}>
+                {topics.includes(t)?"✓ ":""}{l}
+              </button>
+            ))}
+          </div>
+        </> : <>
+          <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:4}}>Server酱 SendKey *</label>
+          <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>前往 <a href="https://sct.ftqq.com" target="_blank" rel="noreferrer" style={{color:"#2563eb"}}>sct.ftqq.com</a> 获取 SendKey</div>
+          <input value={sendKey} onChange={e=>setSendKey(e.target.value)} placeholder="SCT..." style={inp} />
+          <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:6}}>GPU 关键词（选填，如 H100）</label>
+          <input value={gpuKw} onChange={e=>setGpuKw(e.target.value)} placeholder="不填=全部" style={inp} />
+          <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:6}}>地区</label>
+          <select value={region} onChange={e=>setRegion(e.target.value)} style={{...inp,marginBottom:16}}>
+            <option value="">全部</option>
+            <option value="国内">国内</option>
+            <option value="海外">海外</option>
+          </select>
+          <label style={{display:"block",fontSize:12,color:"#64748b",marginBottom:8}}>标签（不选=全部）</label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:24}}>
+            {["训练","推理","大模型","微调","渲染","多模态"].map(t=>(
+              <button key={t} type="button" onClick={()=>toggleTag(t)} style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${selTags.includes(t)?"rgba(37,99,235,0.4)":"#e2e8f0"}`,background:selTags.includes(t)?"rgba(37,99,235,0.06)":"transparent",color:selTags.includes(t)?"#2563eb":"#64748b",cursor:"pointer",fontSize:12,fontWeight:selTags.includes(t)?600:400}}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </>}
         <button onClick={handle} disabled={!valid} style={{...primaryBtn,width:"100%",opacity:valid?1:0.4,cursor:valid?"pointer":"default"}}>立即订阅</button>
       </> : <div style={{textAlign:"center",padding:"28px 0"}}>
         <div style={{fontSize:44,marginBottom:12}}>🎉</div>
         <div style={{fontSize:18,fontWeight:700,marginBottom:6,color:"#0f172a"}}>订阅成功！</div>
-        <div style={{fontSize:13,color:"#64748b",marginBottom:24}}>我们将通过邮件第一时间通知您</div>
+        <div style={{fontSize:13,color:"#64748b",marginBottom:24}}>{doneTab==="email"?"我们将通过邮件第一时间通知您":"微信推送已开启，新资源/需求将实时通知您"}</div>
         <button onClick={onClose} style={{...primaryBtn,padding:"10px 32px"}}>完成</button>
       </div>}
     </Modal>
@@ -3712,11 +3761,22 @@ export default function App() {
   const handleDeleteResource = (id) => { setResources(rs=>rs.filter(r=>r.id!==id)); };
   const handlePublishFromDemand = (vendor,resource) => { setVendors(vs=>[...vs,vendor]); setResources(rs=>[resource,...rs]); };
   const handleSubscribe = (sub) => {
-    // 乐观更新计数
-    if (sub.topics.includes("resources")) setResSubCount(n=>n+1);
-    if (sub.topics.includes("demands"))   setDemSubCount(n=>n+1);
-    // 写入 API
-    fetch(`${API}/api/subscribers`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(sub) }).catch(()=>{});
+    if (sub.type === "wechat") {
+      fetch(`${API}/api/subscriptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ send_key: sub.sendKey, filters: sub.filters }),
+      }).catch(() => {});
+    } else {
+      // 乐观更新计数
+      if (sub.topics && sub.topics.includes("resources")) setResSubCount(n=>n+1);
+      if (sub.topics && sub.topics.includes("demands"))   setDemSubCount(n=>n+1);
+      fetch(`${API}/api/subscribers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: sub.email, topics: sub.topics }),
+      }).catch(() => {});
+    }
   };
 
   const resSubscriberCount = resSubCount;

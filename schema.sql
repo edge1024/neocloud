@@ -394,3 +394,14 @@ ALTER TABLE gpu_resources
     ADD COLUMN IF NOT EXISTS extra_cpu_config TEXT         NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS count_unit       VARCHAR(10)  NOT NULL DEFAULT '卡',
     ADD COLUMN IF NOT EXISTS currency         VARCHAR(10)  NOT NULL DEFAULT '人民币';
+
+-- =============================================================================
+-- Migration: subscriptions 表（微信推送订阅）
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id         BIGSERIAL    PRIMARY KEY,
+    send_key   VARCHAR(200) NOT NULL,
+    filters    JSONB        NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_created ON subscriptions(created_at DESC);
