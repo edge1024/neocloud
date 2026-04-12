@@ -2657,10 +2657,11 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
     <div style={{paddingTop:12}}>
       {/* Compact header */}
       <div style={{textAlign:"center",paddingBottom:24,borderBottom:"1px solid #e2e8f0",marginBottom:24}}>
-        <h1 style={{fontFamily:"'Noto Serif SC',serif",fontSize:"clamp(18px,3.5vw,38px)",fontWeight:700,lineHeight:1.3,marginBottom:8,color:"#0f172a"}}>
-          全球&nbsp;<span style={{color:"#2563eb"}}>GPU 算力</span>&nbsp;资源与需求集市
+        <h1 style={{fontFamily:"'Noto Serif SC',serif",fontSize:"clamp(40px,8vw,64px)",fontWeight:700,lineHeight:1.2,marginBottom:12,color:"#0f172a"}}>
+          来集市
         </h1>
-        <p style={{color:"#64748b",fontSize:13}}>全球算力资源，全球算力需求，</p>
+        <p style={{fontSize:"clamp(20px,4vw,28px)",letterSpacing:"0.3em",color:"#374151",marginBottom:8,fontWeight:500}}>闲逛 摆摊 买东西</p>
+        <p style={{fontSize:16,color:"#94a3b8",fontWeight:300}}>The next-generation AI marketplace</p>
       </div>
 
       {/* 算力资源 */}
@@ -4365,11 +4366,9 @@ export default function App() {
       <nav style={{borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:60,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
         <img src="/logo.svg" height="36" onClick={()=>setTabView("home")} style={{cursor:"pointer",flexShrink:0,display:"block"}} alt="新云集市" />
         <div className="desk-only" style={{display:"flex",gap:2}}>
-          {[["home","首页"],["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setTabView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
-              {l}
-            </button>
-          ))}
+          <button onClick={()=>setTabView("home")} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tabView==="home"?"rgba(37,99,235,0.08)":"transparent",color:tabView==="home"?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
+            首页
+          </button>
           {/* 算力租赁下拉 */}
           <div style={{position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector(".nav-dropdown").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".nav-dropdown").style.display="none"}>
             <button style={{padding:"6px 14px",borderRadius:8,border:"none",background:(tabView==="resources"||tabView==="demands")?"rgba(37,99,235,0.08)":"transparent",color:(tabView==="resources"||tabView==="demands")?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
@@ -4383,6 +4382,11 @@ export default function App() {
               ))}
             </div>
           </div>
+          {[["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setTabView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
+              {l}
+            </button>
+          ))}
         </div>
         <button className="mob-show" onClick={()=>setMenuOpen(o=>!o)}
           style={{display:"none",alignItems:"center",justifyContent:"center",width:40,height:44,border:"none",background:"transparent",cursor:"pointer"}}>
@@ -4394,24 +4398,18 @@ export default function App() {
             <button onClick={()=>setCurrentVendor(authVendor)} style={{padding:"7px 16px",border:"1px solid #e2e8f0",borderRadius:8,background:"#ffffff",color:"#374151",fontSize:13,cursor:"pointer",fontWeight:600}}>个人中心</button>
             <button onClick={()=>{ localStorage.removeItem("auth_token"); setAuthVendor(null); setAuthAdmin(false); }} style={{padding:"7px 14px",border:"none",borderRadius:8,background:"transparent",color:"#94a3b8",fontSize:13,cursor:"pointer"}}>退出</button>
           </> : <>
-            <button onClick={()=>setShowAuth("login")} style={{padding:"10px 20px",border:"1px solid #e2e8f0",borderRadius:8,background:"#ffffff",color:"#374151",fontSize:13,cursor:"pointer",fontWeight:600}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="#2563eb";e.currentTarget.style.color="#2563eb";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.color="#374151";}}
-            >登录</button>
-            <button onClick={()=>setShowAuth("register")} style={{padding:"10px 20px",border:"none",borderRadius:8,background:"#2563eb",color:"#fff",fontSize:13,cursor:"pointer",fontWeight:600}}
+            <button onClick={()=>setShowAuth("login")} style={{padding:"10px 20px",border:"none",borderRadius:8,background:"#2563eb",color:"#fff",fontSize:13,cursor:"pointer",fontWeight:600}}
               onMouseEnter={e=>e.currentTarget.style.background="#1d4ed8"}
               onMouseLeave={e=>e.currentTarget.style.background="#2563eb"}
-            >注册</button>
+            >登录</button>
           </>}
         </div>
       </nav>
       <div className={`mob-menu${menuOpen?" open":""}`}>
-        {[["home","首页"],["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{setTabView(v);setMenuOpen(false);}}
-            style={{padding:"12px 16px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:14,fontWeight:600,textAlign:"left",minHeight:44}}>
-            {l}
-          </button>
-        ))}
+        <button onClick={()=>{setTabView("home");setMenuOpen(false);}}
+          style={{padding:"12px 16px",borderRadius:8,border:"none",background:tabView==="home"?"rgba(37,99,235,0.08)":"transparent",color:tabView==="home"?"#2563eb":"#64748b",cursor:"pointer",fontSize:14,fontWeight:600,textAlign:"left",minHeight:44}}>
+          首页
+        </button>
         <div style={{padding:"4px 0"}}>
           <div style={{padding:"10px 16px",fontSize:14,fontWeight:600,color:"#64748b"}}>算力租赁</div>
           {[["resources","资源列表"],["demands","需求列表"]].map(([v,l])=>(
@@ -4421,6 +4419,12 @@ export default function App() {
             </button>
           ))}
         </div>
+        {[["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{setTabView(v);setMenuOpen(false);}}
+            style={{padding:"12px 16px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:14,fontWeight:600,textAlign:"left",minHeight:44}}>
+            {l}
+          </button>
+        ))}
       </div>
 
       <main className="main-wrap" style={{maxWidth:1200,margin:"0 auto",padding:"40px 24px"}}>
