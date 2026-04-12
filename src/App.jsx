@@ -2656,12 +2656,23 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
   return (
     <div style={{paddingTop:12}}>
       {/* Compact header */}
-      <div style={{textAlign:"center",paddingBottom:24,borderBottom:"1px solid #e2e8f0",marginBottom:24}}>
-        <h1 style={{fontFamily:"'Noto Serif SC',serif",fontSize:"clamp(40px,8vw,64px)",fontWeight:700,lineHeight:1.2,marginBottom:12,color:"#0f172a"}}>
-          来集市
+      <div style={{textAlign:"center",paddingBottom:28,borderBottom:"1px solid #e2e8f0",marginBottom:24}}>
+        <h1 style={{
+          fontFamily:"'Noto Serif SC',serif",
+          fontSize:"clamp(44px,9vw,72px)",
+          fontWeight:800,
+          lineHeight:1.15,
+          marginBottom:16,
+          letterSpacing:"-1px",
+          background:"linear-gradient(135deg, #E83A2E 0%, #F5A623 100%)",
+          WebkitBackgroundClip:"text",
+          WebkitTextFillColor:"transparent",
+          backgroundClip:"text",
+        }}>
+          来新云集市
         </h1>
-        <p style={{fontSize:"clamp(20px,4vw,28px)",letterSpacing:"0.3em",color:"#374151",marginBottom:8,fontWeight:500}}>闲逛 摆摊 买东西</p>
-        <p style={{fontSize:16,color:"#94a3b8",fontWeight:300}}>The next-generation AI marketplace</p>
+        <p style={{fontSize:"clamp(18px,3vw,24px)",letterSpacing:"4px",color:"#4A5568",marginBottom:10,fontWeight:400}}>闲逛 摆摊 买东西</p>
+        <p style={{fontSize:14,color:"#94a3b8",fontWeight:300,letterSpacing:"0.5px"}}>The next-generation AI marketplace</p>
       </div>
 
       {/* 算力资源 */}
