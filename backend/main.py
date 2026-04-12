@@ -711,7 +711,7 @@ async def create_memory_listing(body: MemoryListingCreate, user=Depends(current_
             body.warranty, body.description,
             body.price_per_stick, body.tax_included, body.invoice_one_to_one,
             body.payment_method, body.shipping_method, body.location,
-            body.contact_name, body.contact_info, user["id"]
+            body.contact_name, body.contact_info, user["sub"]
         )
     return dict(row)
 
