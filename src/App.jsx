@@ -914,10 +914,13 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
   const [contact, setContact] = useState({ contactName: vendor.contactName||"", contactPhone: vendor.contactPhone||"", email: vendor.email||"" });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMsg, setContactMsg] = useState("");
-  const [dashTab, setDashTab] = useState("resources"); // "resources" | "demands"
+  const [dashTab, setDashTab] = useState("resources"); // "resources" | "demands" | "memory"
   const [myDemands, setMyDemands] = useState([]);
   const [demLoading, setDemLoading] = useState(false);
   const [editingDemand, setEditingDemand] = useState(null);
+  const [myMemory, setMyMemory] = useState([]);
+  const [memLoading, setMemLoading] = useState(false);
+  const [editingMemory, setEditingMemory] = useState(null);
   const myRes = resources.filter(r=>r.vendorId===vendor.id);
   const availCount = myRes.filter(r=>r.status==="在线"||r.available).length;
 
@@ -926,6 +929,13 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
     setDemLoading(true);
     fetch(`${API}/api/vendor/demands`, { headers:{ Authorization:`Bearer ${vendor._token}` } })
       .then(r=>r.ok?r.json():[]).then(setMyDemands).catch(()=>{}).finally(()=>setDemLoading(false));
+  }, [dashTab]);
+
+  useEffect(()=>{
+    if (dashTab !== "memory") return;
+    setMemLoading(true);
+    fetch(`${API}/api/vendor/memory-listings`, { headers:{ Authorization:`Bearer ${vendor._token}` } })
+      .then(r=>r.ok?r.json():[]).then(setMyMemory).catch(()=>{}).finally(()=>setMemLoading(false));
   }, [dashTab]);
 
   const patchDemand = async (id, data) => {
@@ -1058,7 +1068,7 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
 
         {/* Tab navigation */}
         <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"2px solid #e2e8f0"}}>
-          {[["resources","我的资源"],["demands","我的需求"]].map(([key,label])=>(
+          {[["resources","我的资源"],["demands","我的需求"],["memory","内存条管理"]].map(([key,label])=>(
             <button key={key} onClick={()=>setDashTab(key)} style={{padding:"9px 20px",border:"none",background:"none",cursor:"pointer",fontSize:14,fontWeight:600,color:dashTab===key?"#2563eb":"#64748b",borderBottom:dashTab===key?"2px solid #2563eb":"2px solid transparent",marginBottom:-2,transition:"color 0.15s"}}>
               {label}
             </button>
@@ -1167,9 +1177,69 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
             </div>
           )}
         </>}
+
+        {dashTab==="memory" && <>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <div>
+              <div style={{fontSize:18,fontWeight:700,color:"#0f172a"}}>内存条管理</div>
+              <div style={{fontSize:12,color:"#64748b",marginTop:2}}>管理您发布的内存条信息</div>
+            </div>
+          </div>
+          {memLoading ? (
+            <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8",fontSize:13}}>加载中...</div>
+          ) : myMemory.length===0 ? (
+            <div style={{textAlign:"center",padding:"80px 0",border:"1px dashed #d1d5db",borderRadius:16,color:"#94a3b8"}}>
+              <div style={{fontSize:40,marginBottom:12}}>💾</div>
+              <div style={{fontSize:16,marginBottom:6,color:"#374151"}}>还没有发布任何内存条</div>
+              <div style={{fontSize:13,color:"#94a3b8"}}>在硬件页面点击「发布内存条」即可创建</div>
+            </div>
+          ) : (
+            <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+                <thead>
+                  <tr style={{background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
+                    {["标题","品牌","代数","容量","数量","单价","状态","操作"].map(h=>(
+                      <th key={h} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {myMemory.map(m=>(
+                    <tr key={m.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                      <td style={{padding:"12px 14px",fontSize:13,fontWeight:600,color:"#0f172a",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</td>
+                      <td style={{padding:"12px 14px",fontSize:13,color:"#374151"}}>{m.brand}</td>
+                      <td style={{padding:"12px 14px",fontSize:13,color:"#374151"}}>{m.generation}</td>
+                      <td style={{padding:"12px 14px",fontSize:13,color:"#374151"}}>{m.capacity_per_stick}</td>
+                      <td style={{padding:"12px 14px",fontSize:13,color:"#374151"}}>{m.quantity}条</td>
+                      <td style={{padding:"12px 14px",fontSize:13,color:"#2563eb",fontWeight:600}}>{m.price_per_stick?`¥${m.price_per_stick}/条`:"面议"}</td>
+                      <td style={{padding:"12px 14px"}}>
+                        <span style={{display:"inline-block",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:m.is_visible?"#dcfce7":"#f1f5f9",color:m.is_visible?"#16a34a":"#94a3b8"}}>{m.is_visible?"显示":"隐藏"}</span>
+                      </td>
+                      <td style={{padding:"12px 14px"}}>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                          <button onClick={()=>setEditingMemory(m)} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",color:"#374151",cursor:"pointer"}}>编辑</button>
+                          <button onClick={async()=>{
+                            await fetch(`${API}/api/vendor/memory-listings/${m.id}`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${vendor._token}`},body:JSON.stringify({is_visible:!m.is_visible})});
+                            setMyMemory(ls=>ls.map(x=>x.id===m.id?{...x,is_visible:!x.is_visible}:x));
+                          }} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"1px solid #e2e8f0",background:"#f8fafc",color:"#64748b",cursor:"pointer"}}>{m.is_visible?"隐藏":"显示"}</button>
+                          <button onClick={async()=>{
+                            if(!window.confirm("确认删除此内存条？")) return;
+                            await fetch(`${API}/api/vendor/memory-listings/${m.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${vendor._token}`}});
+                            setMyMemory(ls=>ls.filter(x=>x.id!==m.id));
+                          }} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"1px solid #fecaca",background:"#fff5f5",color:"#dc2626",cursor:"pointer"}}>删除</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>}
       </div>
       {showPublish && <PublishModal vendor={vendor} onClose={()=>setShowPublish(false)} onPublish={onPublish} />}
       {editingDemand && <PostRequirementModal vendor={vendor} initialDemand={editingDemand} onClose={()=>setEditingDemand(null)} onSuccess={data=>{ patchDemand(data.id, data); setEditingDemand(null); }} />}
+      {editingMemory && <MemoryEditModal item={editingMemory} token={vendor._token} onClose={()=>setEditingMemory(null)} onSuccess={updated=>{ setMyMemory(ls=>ls.map(x=>x.id===updated.id?updated:x)); setEditingMemory(null); }} />}
     </div>
   );
 }
@@ -2248,6 +2318,93 @@ function MemoryPublishModal({ onClose, onSuccess }) {
   );
 }
 
+// ─── Memory Edit Modal ────────────────────────────────────────────────────────
+function MemoryEditModal({ item, token, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    title: item.title||"", listing_type: item.listing_type||"出售",
+    brand: item.brand||"三星Samsung", generation: item.generation||"DDR5",
+    capacity_per_stick: item.capacity_per_stick||"64GB", quantity: String(item.quantity||""),
+    frequency: item.frequency||"4800MHz", condition: item.condition||"全新",
+    warranty: item.warranty||"1年", description: item.description||"",
+    price_per_stick: item.price_per_stick!=null?String(item.price_per_stick):"",
+    tax_included: item.tax_included||"含税", invoice_one_to_one: item.invoice_one_to_one!==false,
+    payment_method: item.payment_method||"款齐发货",
+    shipping_method: item.shipping_method||"快递（买家承担运费）",
+    location: item.location||"", contact_name: item.contact_name||"", contact_info: item.contact_info||""
+  });
+  const [saving, setSaving] = useState(false);
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const lbl = {display:"block",fontSize:12,color:"#64748b",marginBottom:4};
+  const sel = (k,opts) => (
+    <select value={form[k]} onChange={set(k)} style={{...inp,marginBottom:12}}>
+      {opts.map(o=><option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+
+  const handle = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/api/vendor/memory-listings/${item.id}`, {
+        method:"PATCH",
+        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify({...form,quantity:Number(form.quantity),price_per_stick:form.price_per_stick?Number(form.price_per_stick):null})
+      });
+      if (res.ok) onSuccess({...item,...form,quantity:Number(form.quantity),price_per_stick:form.price_per_stick?Number(form.price_per_stick):null});
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} width={620}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+        <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>编辑内存条</div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
+      </div>
+      <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9"}}>产品信息</div>
+      <label style={lbl}>标题 *</label>
+      <input value={form.title} onChange={set("title")} style={inp} />
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div><label style={lbl}>类型</label>{sel("listing_type",["出售","求购","出租"])}</div>
+        <div><label style={lbl}>品牌</label>{sel("brand",["三星Samsung","海力士SK Hynix","镁光Micron","金士顿Kingston","其他"])}</div>
+        <div><label style={lbl}>代数</label>{sel("generation",["DDR3","DDR4","DDR5"])}</div>
+        <div><label style={lbl}>单条容量</label>{sel("capacity_per_stick",["8GB","16GB","32GB","64GB","96GB","128GB","其他"])}</div>
+        <div><label style={lbl}>数量（条）</label><input type="number" min="1" value={form.quantity} onChange={set("quantity")} style={inp} /></div>
+        <div><label style={lbl}>频率</label>{sel("frequency",["2666MHz","3200MHz","4800MHz","5600MHz","6400MHz","其他"])}</div>
+        <div><label style={lbl}>成色</label>{sel("condition",["全新","拆机"])}</div>
+        <div><label style={lbl}>质保时间</label>{sel("warranty",["无","3个月","6个月","1年","2年","3年"])}</div>
+      </div>
+      <label style={lbl}>补充说明</label>
+      <textarea value={form.description} onChange={set("description")} rows={3} style={{...inp,resize:"vertical"}} />
+      <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9",marginTop:4}}>交易信息</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div><label style={lbl}>单价（元/条）</label><input type="number" min="0" value={form.price_per_stick} onChange={set("price_per_stick")} style={inp} /></div>
+        <div><label style={lbl}>含税</label>{sel("tax_included",["含税","不含税"])}</div>
+        <div>
+          <label style={lbl}>发票一对一</label>
+          <div style={{display:"flex",gap:12,marginBottom:12}}>
+            {[["是",true],["否",false]].map(([l,v])=>(
+              <label key={l} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}>
+                <input type="radio" checked={form.invoice_one_to_one===v} onChange={()=>setForm(f=>({...f,invoice_one_to_one:v}))} />{l}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div><label style={lbl}>交易方式</label>{sel("payment_method",["款齐发货","预付定金","货到付款","其他"])}</div>
+        <div style={{gridColumn:"span 2"}}><label style={lbl}>发货方式</label>{sel("shipping_method",["快递（买家承担运费）","快递（卖家承担运费）","自提","其他"])}</div>
+        <div style={{gridColumn:"span 2"}}><label style={lbl}>所在地</label><input value={form.location} onChange={set("location")} style={inp} /></div>
+      </div>
+      <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9"}}>联系方式</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div><label style={lbl}>联系人</label><input value={form.contact_name} onChange={set("contact_name")} style={inp} /></div>
+        <div><label style={lbl}>联系方式</label><input value={form.contact_info} onChange={set("contact_info")} style={inp} /></div>
+      </div>
+      <button onClick={handle} disabled={saving} style={{...primaryBtn,width:"100%",opacity:saving?0.4:1,marginTop:8}}>
+        {saving?"保存中...":"保存"}
+      </button>
+    </Modal>
+  );
+}
+
 // ─── Memory List Page ─────────────────────────────────────────────────────────
 function MemoryPage({ authVendor, onShowAuth, onPublish }) {
   const [listings, setListings] = useState([]);
@@ -2291,7 +2448,7 @@ function MemoryPage({ authVendor, onShowAuth, onPublish }) {
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
                 <tr>
-                  {["品牌","代数","容量","数量","频率","成色","单价","所在地","类型",""].map((h,i)=>(
+                  {["品牌","代数","容量","数量","频率","成色","单价","类型",""].map((h,i)=>(
                     <th key={i} style={thS}>{h}</th>
                   ))}
                 </tr>
@@ -2312,7 +2469,6 @@ function MemoryPage({ authVendor, onShowAuth, onPublish }) {
                       <td style={tdS}>{item.frequency}</td>
                       <td style={tdS}>{item.condition}</td>
                       <td style={{...tdS,color:"#2563eb",fontWeight:600}}>{item.price_per_stick?`¥${item.price_per_stick}/条`:"面议"}</td>
-                      <td style={tdS}>{item.location}</td>
                       <td style={tdS}><span style={{padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e"}}>{item.listing_type}</span></td>
                       <td style={{padding:"8px 6px",textAlign:"center",borderBottom:expanded?"none":"1px solid #f1f5f9",width:44}}>
                         <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b",cursor:"pointer",userSelect:"none"}}>
@@ -2322,11 +2478,11 @@ function MemoryPage({ authVendor, onShowAuth, onPublish }) {
                     </tr>
                   );
                   if (!expanded) return [mainRow];
-                  const qrUrl = `${window.location.origin}?memory=${item.id}`;
+                  const qrUrl = `${window.location.origin}/hardware/memory/${item.id}`;
                   const qrLabel = `${item.quantity}条 ${item.brand} ${item.generation} ${item.capacity_per_stick} ${item.listing_type}`;
                   return [mainRow,(
                     <tr key={`${item.id}-detail`}>
-                      <td colSpan={10} style={{padding:"20px 24px",background:"rgba(37,99,235,0.02)",borderBottom:"1px solid #e2e8f0"}}>
+                      <td colSpan={9} style={{padding:"20px 24px",background:"rgba(37,99,235,0.02)",borderBottom:"1px solid #e2e8f0"}}>
                         <MemoryDetailInner item={item} authVendor={authVendor} onShowAuth={onShowAuth} qrUrl={qrUrl} qrLabel={qrLabel} />
                       </td>
                     </tr>
@@ -2410,6 +2566,58 @@ function MemoryDetailInner({ item, authVendor, onShowAuth, qrUrl, qrLabel }) {
       </div>
       <button onClick={()=>setShowQr(true)} style={{...ghostBtn,padding:"7px 20px",fontSize:12}}>生成二维码</button>
       {showQr && <QRCodeModal url={qrUrl} label={qrLabel} onClose={()=>setShowQr(false)} />}
+    </div>
+  );
+}
+
+// ─── Memory Detail Page ───────────────────────────────────────────────────────
+function MemoryDetailPage({ listingId }) {
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(()=>{
+    fetch(`${API}/api/memory-listings/${listingId}`)
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ if(d) setListing(d); else setNotFound(true); setLoading(false); })
+      .catch(()=>{ setNotFound(true); setLoading(false); });
+  },[listingId]);
+
+  const base = {fontFamily:"'Noto Sans SC',system-ui,sans-serif",minHeight:"100vh",background:"#f1f5f9",color:"#0f172a"};
+  if (loading) return <div style={{...base,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
+    <div style={{width:32,height:32,border:"3px solid #e2e8f0",borderTop:"3px solid #2563eb",borderRadius:"50%",animation:"spin 0.8s linear infinite"}} />
+    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <span style={{fontSize:14,color:"#64748b"}}>加载中...</span>
+  </div>;
+  if (notFound) return <div style={{...base,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>💾</div>
+      <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:8}}>内存条不存在或已下线</div>
+      <div style={{fontSize:13,color:"#64748b",marginBottom:24}}>该内存条已被删除或暂时下线</div>
+      <a href="/" style={{color:"#2563eb",fontSize:13}}>← 返回首页</a>
+    </div>
+  </div>;
+
+  const qrUrl = `${window.location.origin}/hardware/memory/${listing.id}`;
+  const qrLabel = `${listing.quantity}条 ${listing.brand} ${listing.generation} ${listing.capacity_per_stick} ${listing.listing_type}`;
+
+  return (
+    <div style={base}>
+      <div style={{maxWidth:900,margin:"0 auto",padding:"40px 20px"}}>
+        <div style={{marginBottom:24}}>
+          <a href="/" style={{color:"#2563eb",fontSize:13,textDecoration:"none"}}>← 返回首页</a>
+        </div>
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:16,padding:"32px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{marginBottom:24}}>
+            <div style={{fontSize:24,fontWeight:700,color:"#0f172a",marginBottom:8}}>{listing.title}</div>
+            <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600,background:listing.listing_type==="出售"?"#dbeafe":listing.listing_type==="求购"?"#dcfce7":"#fef9c3",color:listing.listing_type==="出售"?"#1d4ed8":listing.listing_type==="求购"?"#15803d":"#854d0e"}}>{listing.listing_type}</span>
+              {listing.price_per_stick && <span style={{fontSize:20,fontWeight:700,color:"#2563eb"}}>¥{listing.price_per_stick}/条</span>}
+            </div>
+          </div>
+          <MemoryDetailInner item={listing} authVendor={null} onShowAuth={()=>{}} qrUrl={qrUrl} qrLabel={qrLabel} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -2636,7 +2844,7 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
                 <tr>
-                  {["品牌","代数","容量","数量","类型","所在地"].map((h,i)=>(
+                  {["品牌","代数","容量","数量","类型"].map((h,i)=>(
                     <th key={i} style={thS}>{h}</th>
                   ))}
                 </tr>
@@ -2653,7 +2861,6 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
                       <td style={tdS}>{item.capacity_per_stick}</td>
                       <td style={tdS}>{item.quantity}条</td>
                       <td style={tdS}><span style={{padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e"}}>{item.listing_type}</span></td>
-                      <td style={tdS}>{item.location}</td>
                     </tr>
                   );
                 })}
@@ -4045,6 +4252,8 @@ export default function App() {
   if (demandMatch) return <DemandDetailPage demandId={demandMatch[1]} />;
   const resourceMatch = window.location.pathname.match(/^\/resources\/(\d+)$/);
   if (resourceMatch) return <ResourceDetailPage resourceId={resourceMatch[1]} />;
+  const memoryMatch = window.location.pathname.match(/^\/hardware\/memory\/([a-f0-9-]+)$/);
+  if (memoryMatch) return <MemoryDetailPage listingId={memoryMatch[1]} />;
   const [vendors, setVendors] = useState([]);
   const [resources, setResources] = useState([]);
   const [demands, setDemands] = useState([]);

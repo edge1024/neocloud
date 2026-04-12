@@ -715,6 +715,79 @@ async def create_memory_listing(body: MemoryListingCreate, user=Depends(current_
         )
     return dict(row)
 
+# ─── Vendor: Memory Listings ───────────────────────────────────────────────────
+import uuid as _uuid_mod2
+
+@app.get("/api/vendor/memory-listings")
+async def vendor_list_memory(user=Depends(current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM memory_listings WHERE user_id=$1 ORDER BY created_at DESC",
+            _uuid_mod2.UUID(user["sub"])
+        )
+    return [dict(r) for r in rows]
+
+class MemoryListingPatch(BaseModel):
+    title: Optional[str] = None
+    listing_type: Optional[str] = None
+    brand: Optional[str] = None
+    generation: Optional[str] = None
+    capacity_per_stick: Optional[str] = None
+    quantity: Optional[int] = None
+    frequency: Optional[str] = None
+    condition: Optional[str] = None
+    warranty: Optional[str] = None
+    description: Optional[str] = None
+    price_per_stick: Optional[float] = None
+    tax_included: Optional[str] = None
+    invoice_one_to_one: Optional[bool] = None
+    payment_method: Optional[str] = None
+    shipping_method: Optional[str] = None
+    location: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_info: Optional[str] = None
+    is_visible: Optional[bool] = None
+
+@app.patch("/api/vendor/memory-listings/{listing_id}")
+async def vendor_patch_memory(listing_id: str, body: MemoryListingPatch, user=Depends(current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT user_id FROM memory_listings WHERE id=$1", _uuid_mod2.UUID(listing_id))
+        if not row or str(row["user_id"]) != user["sub"]:
+            raise HTTPException(status_code=403, detail="无权操作")
+        fields = [
+            ("title","title"),("listing_type","listing_type"),("brand","brand"),
+            ("generation","generation"),("capacity_per_stick","capacity_per_stick"),
+            ("quantity","quantity"),("frequency","frequency"),("condition","condition"),
+            ("warranty","warranty"),("description","description"),
+            ("price_per_stick","price_per_stick"),("tax_included","tax_included"),
+            ("invoice_one_to_one","invoice_one_to_one"),("payment_method","payment_method"),
+            ("shipping_method","shipping_method"),("location","location"),
+            ("contact_name","contact_name"),("contact_info","contact_info"),
+            ("is_visible","is_visible"),
+        ]
+        updates, params, i = [], [], 1
+        for field, col in fields:
+            val = getattr(body, field)
+            if val is not None:
+                updates.append(f"{col}=${i}"); params.append(val); i += 1
+        if updates:
+            await conn.execute(
+                f"UPDATE memory_listings SET {', '.join(updates)}, updated_at=NOW() WHERE id=${i}",
+                *params, _uuid_mod2.UUID(listing_id)
+            )
+    return {"ok": True}
+
+@app.delete("/api/vendor/memory-listings/{listing_id}", status_code=204)
+async def vendor_delete_memory(listing_id: str, user=Depends(current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT user_id FROM memory_listings WHERE id=$1", _uuid_mod2.UUID(listing_id))
+        if not row or str(row["user_id"]) != user["sub"]:
+            raise HTTPException(status_code=403, detail="无权操作")
+        await conn.execute("DELETE FROM memory_listings WHERE id=$1", _uuid_mod2.UUID(listing_id))
+
 # ─── Admin: Memory ─────────────────────────────────────────────────────────────
 @app.get("/api/admin/memory-listings")
 async def admin_list_memory(user=Depends(admin_required)):
