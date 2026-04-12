@@ -2664,12 +2664,9 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
           lineHeight:1.15,
           marginBottom:16,
           letterSpacing:"-1px",
-          background:"linear-gradient(135deg, #E83A2E 0%, #F5A623 100%)",
-          WebkitBackgroundClip:"text",
-          WebkitTextFillColor:"transparent",
-          backgroundClip:"text",
         }}>
-          来新云集市
+          <span style={{color:"#4A5568"}}>来</span>
+          <span style={{color:"#E83A2E"}}>新云集市</span>
         </h1>
         <p style={{fontSize:"clamp(18px,3vw,24px)",letterSpacing:"4px",color:"#4A5568",marginBottom:10,fontWeight:400}}>闲逛 摆摊 买东西</p>
         <p style={{fontSize:14,color:"#94a3b8",fontWeight:300,letterSpacing:"0.5px"}}>The next-generation AI marketplace</p>
