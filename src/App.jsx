@@ -2158,8 +2158,8 @@ function SubscribeModal({ onClose, onSuccess }) {
 function MemoryPublishModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({
     title:"", listing_type:"出售", brand:"三星Samsung", generation:"DDR5",
-    capacity_per_stick:"32GB", quantity:"", frequency:"4800MHz",
-    condition:"全新拆封", warranty:"1年", description:"",
+    capacity_per_stick:"64GB", quantity:"", frequency:"4800MHz",
+    condition:"全新", warranty:"1年", description:"",
     price_per_stick:"", tax_included:"含税", invoice_one_to_one:true,
     payment_method:"款齐发货", shipping_method:"快递（买家承担运费）",
     location:"", contact_name:"", contact_info:""
@@ -2206,10 +2206,10 @@ function MemoryPublishModal({ onClose, onSuccess }) {
         <div><label style={lbl}>类型</label>{sel("listing_type",["出售","求购","出租"])}</div>
         <div><label style={lbl}>品牌</label>{sel("brand",["三星Samsung","海力士SK Hynix","镁光Micron","金士顿Kingston","其他"])}</div>
         <div><label style={lbl}>代数</label>{sel("generation",["DDR3","DDR4","DDR5"])}</div>
-        <div><label style={lbl}>单条容量</label>{sel("capacity_per_stick",["8GB","16GB","32GB","64GB","128GB","其他"])}</div>
+        <div><label style={lbl}>单条容量</label>{sel("capacity_per_stick",["8GB","16GB","32GB","64GB","96GB","128GB","其他"])}</div>
         <div><label style={lbl}>数量（条）*</label><input type="number" min="1" value={form.quantity} onChange={set("quantity")} placeholder="数量" style={inp} /></div>
         <div><label style={lbl}>频率</label>{sel("frequency",["2666MHz","3200MHz","4800MHz","5600MHz","6400MHz","其他"])}</div>
-        <div><label style={lbl}>成色</label>{sel("condition",["全新拆封","99新","95新","9成新","其他"])}</div>
+        <div><label style={lbl}>成色</label>{sel("condition",["全新","拆机"])}</div>
         <div><label style={lbl}>质保时间</label>{sel("warranty",["无","3个月","6个月","1年","2年","3年"])}</div>
       </div>
       <label style={lbl}>补充说明</label>
