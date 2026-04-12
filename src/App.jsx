@@ -2634,6 +2634,8 @@ function MemoryDetailPage({ listingId }) {
 }
 
 // ─── Home Page ────────────────────────────────────────────────────────────────
+const stripGpuName = gpu => (gpu||"").replace(/^(NVIDIA|AMD|华为|Huawei|Intel)\s*/i,"").replace(/\s*\d+GB/gi,"").trim();
+
 function HomePage({ vendors, resources, demands, memoryListings, subscribers, onGoResources, onGoDemands, onGoMemory, onResourceClick, onSubscribe }) {
   const recentResources = [...resources]
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||b.id-a.id)
@@ -2643,35 +2645,38 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)||b.id-a.id)
     .slice(0,3);
   const [expandedDemandId, setExpandedDemandId] = useState(null);
+  const [expandedMemoryId, setExpandedMemoryId] = useState(null);
   const [shareDemandHome, setShareDemandHome] = useState(null);
-  const rowStyle = { display:"flex", alignItems:"center", gap:14, padding:"12px 16px", borderBottom:"1px solid #f1f5f9", cursor:"pointer" };
   const thS = { padding:"9px 12px", fontSize:11, fontWeight:700, color:"#64748b", textAlign:"left", letterSpacing:0.5, background:"#f8fafc", borderBottom:"2px solid #e2e8f0", whiteSpace:"nowrap" };
+  const thMob = { ...thS, padding:"7px 8px", fontSize:11 };
+  const viewAllBtn = (onClick) => (
+    <button onClick={onClick} style={{padding:"4px 12px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:7,background:"transparent",color:"#2563eb",fontSize:12,cursor:"pointer",fontWeight:600,whiteSpace:"nowrap"}}>查看所有 →</button>
+  );
 
   return (
     <div style={{paddingTop:12}}>
       {/* Compact header */}
-      <div style={{textAlign:"center",paddingBottom:36,borderBottom:"1px solid #e2e8f0",marginBottom:40}}>
-
-        <h1 style={{fontFamily:"'Noto Serif SC',serif",fontSize:"clamp(22px,3.5vw,38px)",fontWeight:700,lineHeight:1.3,marginBottom:10,color:"#0f172a"}}>
+      <div style={{textAlign:"center",paddingBottom:24,borderBottom:"1px solid #e2e8f0",marginBottom:24}}>
+        <h1 style={{fontFamily:"'Noto Serif SC',serif",fontSize:"clamp(18px,3.5vw,38px)",fontWeight:700,lineHeight:1.3,marginBottom:8,color:"#0f172a"}}>
           全球&nbsp;<span style={{color:"#2563eb"}}>GPU 算力</span>&nbsp;资源与需求集市
         </h1>
         <p style={{color:"#64748b",fontSize:13}}>全球算力资源，全球算力需求，</p>
       </div>
 
-      {/* 最新资源 */}
-      <div style={{marginBottom:48}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"baseline",gap:12}}>
-            <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>最新资源</h2>
+      {/* 算力资源 */}
+      <div style={{marginBottom:24}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+            <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:17,fontWeight:700,color:"#0f172a"}}>算力资源</h2>
             <span style={{fontSize:12,color:"#94a3b8"}}>共 {resources.length} 条</span>
           </div>
-          <button onClick={onSubscribe} style={{padding:"6px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:8,background:"transparent",color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600}}>订阅更新</button>
+          {viewAllBtn(onGoResources)}
         </div>
-        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflowX:"auto",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:320}}>
             <thead>
               <tr>
-                <th style={thS}>品牌</th>
+                <th style={thS} className="desk-only">品牌</th>
                 <th style={thS}>GPU 型号</th>
                 <th style={thS}>数量</th>
                 <th style={thS}>单位</th>
@@ -2684,15 +2689,15 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
                 const brand = getGpuBrand(r.gpu);
                 const statusLabel = r.status||(r.available?"在线":"下架");
                 const isOnline = statusLabel==="在线"||statusLabel==="预售"||r.available;
-                const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:i===recentResources.length-1?"none":"1px solid #f1f5f9"};
+                const last = i===recentResources.length-1;
+                const tdS = {padding:"9px 12px",fontSize:13,color:"#374151",borderBottom:last?"none":"1px solid #f1f5f9",whiteSpace:"nowrap"};
+                const tdMob = {...tdS,padding:"8px 8px",fontSize:12};
                 return (
-                  <tr key={r.id} onClick={()=>onResourceClick(r)}
-                    style={{cursor:"pointer"}}
+                  <tr key={r.id} onClick={()=>onResourceClick(r)} style={{cursor:"pointer"}}
                     onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}
-                  >
-                    <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{brand}</td>
-                    <td style={{...tdS,fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:14,letterSpacing:0.8,color:"#0f172a"}}>{r.gpu}</td>
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={{...tdS,fontSize:12,color:"#94a3b8"}} className="desk-only">{brand}</td>
+                    <td style={{...tdS,fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:14,letterSpacing:0.8,color:"#0f172a"}}>{stripGpuName(r.gpu)}</td>
                     <td style={tdS}>{r.count}</td>
                     <td style={{...tdS,color:"#64748b"}}>{r.countUnit||"卡"}</td>
                     <td style={tdS}>{r.region||"—"}</td>
@@ -2707,36 +2712,28 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
             </tbody>
           </table>
         </div>
-        <button onClick={onGoResources}
-          style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
-          onMouseEnter={e=>{e.currentTarget.style.color="#2563eb";e.currentTarget.style.borderColor="rgba(37,99,235,0.3)";}}
-          onMouseLeave={e=>{e.currentTarget.style.color="#64748b";e.currentTarget.style.borderColor="#e2e8f0";}}
-        >查看所有资源 →</button>
       </div>
 
-      <div style={{borderTop:"1px solid #e2e8f0",marginBottom:40}} />
+      <div style={{borderTop:"1px solid #e2e8f0",marginBottom:20,marginTop:4}} />
 
-      {/* 最新需求 */}
-      <div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"baseline",gap:12}}>
-            <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>最新需求</h2>
+      {/* 算力需求 */}
+      <div style={{marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+            <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:17,fontWeight:700,color:"#0f172a"}}>算力需求</h2>
             <span style={{fontSize:12,color:"#94a3b8"}}>共 {demands.filter(d=>d.isVisible!==false&&(d.status||"online")==="online").length} 条</span>
           </div>
-          <button onClick={onSubscribe} style={{padding:"6px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:8,background:"transparent",color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600}}>订阅更新</button>
+          {viewAllBtn(onGoDemands)}
         </div>
-        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          {/* Desktop table */}
-          <table className="demand-desktop-table" style={{width:"100%",borderCollapse:"collapse"}}>
+        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflowX:"auto",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:280}}>
             <thead>
               <tr>
-                <th style={thS}>GPU 品牌</th>
                 <th style={thS}>GPU 型号</th>
                 <th style={thS}>数量</th>
                 <th style={thS}>租期</th>
-                <th style={thS}>区域</th>
-                <th style={thS}>发布时间</th>
-                <th style={{...thS,width:44}}></th>
+                <th style={thS}>位置</th>
+                <th style={{...thS,width:36}}></th>
               </tr>
             </thead>
             <tbody>
@@ -2745,32 +2742,25 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
                 const brand = d.gpu_brand||"—";
                 const bdBot = expanded?"none":"1px solid #f1f5f9";
                 const bg = expanded?"rgba(37,99,235,0.04)":"transparent";
-                const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:bdBot};
-                const colSpan = 7;
-
+                const tdS = {padding:"9px 12px",fontSize:12,color:"#374151",borderBottom:bdBot,whiteSpace:"nowrap"};
+                const colSpan = 5;
                 const mainRow = (
-                  <tr key={d.id}
-                    onClick={()=>setExpandedDemandId(expanded?null:d.id)}
+                  <tr key={d.id} onClick={()=>setExpandedDemandId(expanded?null:d.id)}
                     style={{cursor:"pointer",background:bg}}
                     onMouseEnter={e=>{if(!expanded)e.currentTarget.style.background="#f8fafc";}}
-                    onMouseLeave={e=>{e.currentTarget.style.background=bg;}}
-                  >
-                    <td style={tdS}>{brand}</td>
-                    <td style={{...tdS,fontWeight:600,fontFamily:"'Bebas Neue',cursive",letterSpacing:0.5,color:"#0f172a"}}>{d.gpu}</td>
+                    onMouseLeave={e=>{e.currentTarget.style.background=bg;}}>
+                    <td style={{...tdS,fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:13,letterSpacing:0.5,color:"#0f172a"}}>{stripGpuName(d.gpu)}</td>
                     <td style={tdS}>{d.count} {d.count_unit||"卡"}</td>
                     <td style={tdS}>{d.rental_months>0?`${d.rental_months}个月`:"—"}</td>
-                    <td style={tdS}>{d.region||"—"}</td>
-                    <td style={{...tdS,fontSize:12,color:"#94a3b8"}}>{d.createdAt}</td>
-                    <td style={{padding:"8px 6px",textAlign:"center",borderBottom:bdBot,width:44}}>
-                      <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b",transition:"all 0.18s",cursor:"pointer",userSelect:"none",flexShrink:0}}>
+                    <td style={tdS}>{d.region||d.dc_location||"—"}</td>
+                    <td style={{padding:"6px 6px",textAlign:"center",borderBottom:bdBot,width:36}}>
+                      <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:24,height:24,borderRadius:6,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:11,color:expanded?"#2563eb":"#64748b"}}>
                         {expanded?"▲":"▼"}
                       </span>
                     </td>
                   </tr>
                 );
-
                 if (!expanded) return [mainRow];
-
                 const detailFields = [
                   ["GPU 品牌", brand],["GPU 型号", d.gpu],["数量", `${d.count} ${d.count_unit||"卡"}`],
                   ["区域", d.region||null],["机房位置", d.dc_location||null],
@@ -2784,75 +2774,46 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
                   ["邮箱", d.contact_email||null],["备注", d.notes||null, true],
                   ["发布时间", d.createdAt],
                 ].filter(([,v])=>v);
-
                 const detailRow = (
                   <tr key={`${d.id}-exp`}>
                     <td colSpan={colSpan} style={{padding:0,borderBottom:"1px solid #e2e8f0"}}>
-                      <div style={{padding:"16px 20px 14px",background:"rgba(37,99,235,0.03)",borderTop:"2px solid #2563eb"}}>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px 20px"}}>
+                      <div style={{padding:"14px 16px 12px",background:"rgba(37,99,235,0.03)",borderTop:"2px solid #2563eb"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:"10px 16px"}}>
                           {detailFields.map(([label,value,wide])=>(
-                            <div key={label} style={{gridColumn:wide?"span 3":"auto",minWidth:0}}>
-                              <div style={{fontSize:11,color:"#94a3b8",fontWeight:600,letterSpacing:0.3,marginBottom:2,textTransform:"uppercase"}}>{label}</div>
-                              <div style={{fontSize:13,color:"#374151",lineHeight:1.5,wordBreak:"break-word"}}>{value}</div>
+                            <div key={label} style={{gridColumn:wide?"1/-1":"auto",minWidth:0}}>
+                              <div style={{fontSize:11,color:"#94a3b8",fontWeight:600,marginBottom:2}}>{label}</div>
+                              <div style={{fontSize:12,color:"#374151",lineHeight:1.5,wordBreak:"break-word"}}>{value}</div>
                             </div>
                           ))}
                         </div>
-                        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12,paddingTop:10,borderTop:"1px solid #e2e8f0"}}>
+                        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10,paddingTop:8,borderTop:"1px solid #e2e8f0"}}>
                           <button onClick={e=>{e.stopPropagation();setShareDemandHome(d);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
                         </div>
                       </div>
                     </td>
                   </tr>
                 );
-
                 return [mainRow, detailRow];
               })}
             </tbody>
           </table>
-          {/* Mobile cards */}
-          <div className="demand-mobile-cards">
-            {recentDemands.map(d=>{
-              const brand = d.gpu_brand||"";
-              const url = `${window.location.origin}/demands/${d.id}`;              return (
-                <div key={d.id} style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:0.5,color:"#0f172a",marginBottom:4}}>{d.gpu}</div>
-                      {brand && <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>{brand}</div>}
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"4px 12px",fontSize:12,color:"#64748b"}}>
-                        <span>{d.count} {d.count_unit||"卡"}</span>
-                        {d.rental_months>0 && <span>{d.rental_months}个月</span>}
-                        {d.region && <span>{d.region}</span>}
-                        {d.createdAt && <span style={{color:"#94a3b8"}}>{d.createdAt}</span>}
-                      </div>
-                    </div>
-                    <button onClick={e=>{e.stopPropagation();setShareDemandHome(d);}} style={{flexShrink:0,padding:"5px 10px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
-        <button onClick={onGoDemands}
-          style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
-          onMouseEnter={e=>{e.currentTarget.style.color="#2563eb";e.currentTarget.style.borderColor="rgba(37,99,235,0.3)";}}
-          onMouseLeave={e=>{e.currentTarget.style.color="#64748b";e.currentTarget.style.borderColor="#e2e8f0";}}
-        >查看所有需求 →</button>
       </div>
 
-      <div style={{borderTop:"1px solid #e2e8f0",marginBottom:40,marginTop:40}} />
+      <div style={{borderTop:"1px solid #e2e8f0",marginBottom:20,marginTop:4}} />
 
-      {/* 最新内存条 */}
+      {/* 内存条 */}
       {memoryListings && memoryListings.length>0 && (
-        <div style={{marginBottom:48}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-            <div style={{display:"flex",alignItems:"baseline",gap:12}}>
-              <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>最新内存条</h2>
+        <div style={{marginBottom:24}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+              <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:17,fontWeight:700,color:"#0f172a"}}>最新内存条</h2>
               <span style={{fontSize:12,color:"#94a3b8"}}>共 {memoryListings.length} 条</span>
             </div>
+            {viewAllBtn(onGoMemory)}
           </div>
-          <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:12,overflowX:"auto",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:280}}>
               <thead>
                 <tr>
                   {["品牌","代数","容量","数量","类型"].map((h,i)=>(
@@ -2862,27 +2823,34 @@ function HomePage({ vendors, resources, demands, memoryListings, subscribers, on
               </thead>
               <tbody>
                 {memoryListings.slice(0,3).map((item,i)=>{
-                  const tdS = {padding:"11px 12px",fontSize:13,color:"#374151",borderBottom:i===Math.min(memoryListings.length,3)-1?"none":"1px solid #f1f5f9"};
-                  return (
-                    <tr key={item.id} onClick={onGoMemory} style={{cursor:"pointer"}}
-                      onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
-                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  const expanded = expandedMemoryId===item.id;
+                  const last = i===Math.min(memoryListings.length,3)-1;
+                  const tdS = {padding:"9px 12px",fontSize:12,color:"#374151",borderBottom:expanded?"none":last?"none":"1px solid #f1f5f9",whiteSpace:"nowrap"};
+                  return [
+                    <tr key={item.id} onClick={()=>setExpandedMemoryId(expanded?null:item.id)}
+                      style={{cursor:"pointer",background:expanded?"rgba(37,99,235,0.04)":"transparent"}}
+                      onMouseEnter={e=>{if(!expanded)e.currentTarget.style.background="#f8fafc";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background=expanded?"rgba(37,99,235,0.04)":"transparent";}}>
                       <td style={{...tdS,fontWeight:600}}>{item.brand}</td>
                       <td style={tdS}>{item.generation}</td>
                       <td style={tdS}>{item.capacity_per_stick}</td>
                       <td style={tdS}>{item.quantity}条</td>
-                      <td style={tdS}><span style={{padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e"}}>{item.listing_type}</span></td>
-                    </tr>
-                  );
+                      <td style={tdS}><span style={{padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,background:item.listing_type==="出售"?"#dbeafe":item.listing_type==="求购"?"#dcfce7":"#fef9c3",color:item.listing_type==="出售"?"#1d4ed8":item.listing_type==="求购"?"#15803d":"#854d0e"}}>{item.listing_type}</span></td>
+                    </tr>,
+                    expanded && (
+                      <tr key={`${item.id}-exp`}>
+                        <td colSpan={5} style={{padding:"16px 20px",background:"rgba(37,99,235,0.02)",borderBottom:last?"none":"1px solid #e2e8f0",borderTop:"2px solid #2563eb"}}>
+                          <MemoryDetailInner item={item} authVendor={null} onShowAuth={()=>{}}
+                            qrUrl={`${window.location.origin}/hardware/memory/${item.id}`}
+                            qrLabel={`${item.quantity}条 ${item.brand} ${item.generation} ${item.capacity_per_stick} ${item.listing_type}`} />
+                        </td>
+                      </tr>
+                    )
+                  ];
                 })}
               </tbody>
             </table>
           </div>
-          <button onClick={onGoMemory}
-            style={{width:"100%",padding:"11px",border:"1px solid #e2e8f0",borderRadius:10,background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer",fontWeight:500}}
-            onMouseEnter={e=>{e.currentTarget.style.color="#2563eb";e.currentTarget.style.borderColor="rgba(37,99,235,0.3)";}}
-            onMouseLeave={e=>{e.currentTarget.style.color="#64748b";e.currentTarget.style.borderColor="#e2e8f0";}}
-          >查看所有内存条 →</button>
         </div>
       )}
       {shareDemandHome&&(()=>{
