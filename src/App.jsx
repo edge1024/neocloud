@@ -4397,11 +4397,24 @@ export default function App() {
       <nav style={{borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:60,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
         <img src="/logo.svg" height="36" onClick={()=>setTabView("home")} style={{cursor:"pointer",flexShrink:0,display:"block"}} alt="新云集市" />
         <div className="desk-only" style={{display:"flex",gap:2}}>
-          {[["home","首页"],["resources","资源列表"],["demands","需求列表"],["hardware","硬件"],["docs","文档"]/* ["links","相关链接"],["contact","联系我们"] */].map(([v,l])=>(
+          {[["home","首页"],["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
             <button key={v} onClick={()=>setTabView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
               {l}
             </button>
           ))}
+          {/* 算力租赁下拉 */}
+          <div style={{position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector(".nav-dropdown").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".nav-dropdown").style.display="none"}>
+            <button style={{padding:"6px 14px",borderRadius:8,border:"none",background:(tabView==="resources"||tabView==="demands")?"rgba(37,99,235,0.08)":"transparent",color:(tabView==="resources"||tabView==="demands")?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
+              算力租赁 ▾
+            </button>
+            <div className="nav-dropdown" style={{display:"none",position:"absolute",top:"100%",left:0,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.08)",padding:"6px",minWidth:120,zIndex:100}}>
+              {[["resources","资源列表"],["demands","需求列表"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setTabView(v)} style={{display:"block",width:"100%",padding:"8px 14px",borderRadius:7,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#374151",cursor:"pointer",fontSize:13,fontWeight:600,textAlign:"left",whiteSpace:"nowrap"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <button className="mob-show" onClick={()=>setMenuOpen(o=>!o)}
           style={{display:"none",alignItems:"center",justifyContent:"center",width:40,height:44,border:"none",background:"transparent",cursor:"pointer"}}>
@@ -4425,12 +4438,21 @@ export default function App() {
         </div>
       </nav>
       <div className={`mob-menu${menuOpen?" open":""}`}>
-        {[["home","首页"],["resources","资源列表"],["demands","需求列表"],["hardware","硬件"],["docs","文档"]/* ["links","相关链接"],["contact","联系我们"] */].map(([v,l])=>(
+        {[["home","首页"],["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setTabView(v);setMenuOpen(false);}}
             style={{padding:"12px 16px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:14,fontWeight:600,textAlign:"left",minHeight:44}}>
             {l}
           </button>
         ))}
+        <div style={{padding:"4px 0"}}>
+          <div style={{padding:"10px 16px",fontSize:14,fontWeight:600,color:"#64748b"}}>算力租赁</div>
+          {[["resources","资源列表"],["demands","需求列表"]].map(([v,l])=>(
+            <button key={v} onClick={()=>{setTabView(v);setMenuOpen(false);}}
+              style={{display:"block",width:"100%",padding:"10px 16px 10px 28px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:14,fontWeight:600,textAlign:"left",minHeight:44}}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <main className="main-wrap" style={{maxWidth:1200,margin:"0 auto",padding:"40px 24px"}}>
