@@ -2240,7 +2240,6 @@ function MemoryPublishModal({ onClose, onSuccess }) {
         <div><label style={lbl}>联系人 *</label><input value={form.contact_name} onChange={set("contact_name")} placeholder="昵称或姓名" style={inp} /></div>
         <div><label style={lbl}>联系方式 *</label><input value={form.contact_info} onChange={set("contact_info")} placeholder="手机号 / 微信 / QQ" style={inp} /></div>
       </div>
-      <div style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>联系方式仅对注册用户可见</div>
 
       <button onClick={handle} disabled={!valid||saving} style={{...primaryBtn,width:"100%",opacity:(!valid||saving)?0.4:1}}>
         {saving?"发布中...":"发布"}
@@ -2404,17 +2403,10 @@ function MemoryDetailInner({ item, authVendor, onShowAuth, qrUrl, qrLabel }) {
       )}
       <div style={{background:"#f8fafc",borderRadius:10,padding:"14px 16px",marginBottom:14,border:"1px solid #e2e8f0"}}>
         <div style={{fontSize:12,fontWeight:700,color:"#0f172a",marginBottom:8}}>联系方式</div>
-        {authVendor ? (
-          <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
-            <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系人</span>{item.contact_name}</div>
-            <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系方式</span>{item.contact_info}</div>
-          </div>
-        ) : (
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:13,color:"#94a3b8"}}>登录后查看联系方式</span>
-            <button onClick={()=>onShowAuth("login")} style={{padding:"5px 16px",border:"1px solid rgba(37,99,235,0.3)",borderRadius:6,background:"transparent",color:"#2563eb",fontSize:12,cursor:"pointer",fontWeight:600}}>登录</button>
-          </div>
-        )}
+        <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
+          <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系人</span>{item.contact_name}</div>
+          <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系方式</span>{item.contact_info}</div>
+        </div>
       </div>
       <button onClick={()=>setShowQr(true)} style={{...ghostBtn,padding:"7px 20px",fontSize:12}}>生成二维码</button>
       {showQr && <QRCodeModal url={qrUrl} label={qrLabel} onClose={()=>setShowQr(false)} />}
