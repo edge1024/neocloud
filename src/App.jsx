@@ -2527,6 +2527,7 @@ function MemoryPage({ authVendor, onShowAuth, onPublish }) {
 
 function MemoryDetailInner({ item, authVendor, onShowAuth, qrUrl, qrLabel }) {
   const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fields = [
     ["标题", item.title],
     ["类型", item.listing_type],
@@ -2564,7 +2565,17 @@ function MemoryDetailInner({ item, authVendor, onShowAuth, qrUrl, qrLabel }) {
           <div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",marginRight:6}}>联系方式</span>{item.contact_info}</div>
         </div>
       </div>
-      <button onClick={()=>setShowQr(true)} style={{...ghostBtn,padding:"7px 20px",fontSize:12}}>生成二维码</button>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <button onClick={()=>{
+          navigator.clipboard.writeText(qrUrl).then(()=>{
+            setCopied(true);
+            setTimeout(()=>setCopied(false),2000);
+          });
+        }} style={{...ghostBtn,padding:"7px 20px",fontSize:12}}>
+          {copied?"✓ 已复制":"复制链接"}
+        </button>
+        <button onClick={()=>setShowQr(true)} style={{...ghostBtn,padding:"7px 20px",fontSize:12}}>生成二维码</button>
+      </div>
       {showQr && <QRCodeModal url={qrUrl} label={qrLabel} onClose={()=>setShowQr(false)} />}
     </div>
   );
