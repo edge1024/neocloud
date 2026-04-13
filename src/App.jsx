@@ -4382,7 +4382,7 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:"#f1f5f9",color:"#0f172a",fontFamily:"'Noto Sans SC',system-ui,sans-serif"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px} input::placeholder,textarea::placeholder{color:#94a3b8} select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;} @media(max-width:768px){.desk-only{display:none!important} .mob-menu{display:none;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;padding:8px 16px;z-index:48;gap:4px;backdrop-filter:blur(12px)} .mob-menu.open{display:flex!important} .mob-show{display:flex!important} .main-wrap{padding:20px 16px!important} .gpu-row{flex-wrap:wrap!important;padding:10px 14px 10px 30px!important;gap:8px!important} .filter-bar{gap:6px!important;padding:10px 12px!important} .share-main{padding:16px 12px!important}} @media(max-width:480px){.resource-detail-grid{grid-template-columns:1fr!important}} @media(min-width:769px){.mob-show{display:none!important} .mob-menu{display:none!important}} .md-body h1,.md-body h2,.md-body h3{font-family:'Noto Serif SC',serif;font-weight:700;color:#0f172a;margin-top:20px;margin-bottom:8px} .md-body h1{font-size:22px} .md-body h2{font-size:18px} .md-body h3{font-size:16px} .md-body ul,.md-body ol{padding-left:20px;margin-bottom:12px} .md-body li{margin-bottom:4px;color:#374151} .md-body p{margin-bottom:10px;color:#374151} .md-body code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace} .md-body pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:12px} input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0} input[type=number]{-moz-appearance:textfield}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px} input::placeholder,textarea::placeholder{color:#94a3b8} select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;} @media(max-width:768px){.desk-only{display:none!important} .mob-menu{display:none;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;padding:8px 16px;z-index:48;gap:4px;backdrop-filter:blur(12px)} .mob-menu.open{display:flex!important} .mob-show{display:flex!important} .main-wrap{padding:20px 16px!important} .gpu-row{flex-wrap:wrap!important;padding:10px 14px 10px 30px!important;gap:8px!important} .filter-bar{gap:6px!important;padding:10px 12px!important} .share-main{padding:16px 12px!important} .demand-desktop-table{display:none!important} .demand-mobile-list{display:block!important}} .demand-mobile-list{display:none} @media(max-width:480px){.resource-detail-grid{grid-template-columns:1fr!important}} @media(min-width:769px){.mob-show{display:none!important} .mob-menu{display:none!important}} .md-body h1,.md-body h2,.md-body h3{font-family:'Noto Serif SC',serif;font-weight:700;color:#0f172a;margin-top:20px;margin-bottom:8px} .md-body h1{font-size:22px} .md-body h2{font-size:18px} .md-body h3{font-size:16px} .md-body ul,.md-body ol{padding-left:20px;margin-bottom:12px} .md-body li{margin-bottom:4px;color:#374151} .md-body p{margin-bottom:10px;color:#374151} .md-body code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace} .md-body pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:12px} input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0} input[type=number]{-moz-appearance:textfield}`}</style>
 
       {/* Nav */}
       <nav style={{borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:60,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
@@ -4648,13 +4648,21 @@ export default function App() {
                   })}
                 </tbody>
               </table>
-              {/* Mobile cards */}
-              <div className="demand-mobile-cards">
+              {/* Mobile list */}
+              <div className="demand-mobile-list">
+                {/* Header row */}
+                <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 24px",gap:"0 8px",padding:"10px 12px",background:"#f8fafc",borderBottom:"2px solid #e2e8f0",fontSize:11,fontWeight:700,color:"#64748b",letterSpacing:0.5}}>
+                  <div>GPU型号</div>
+                  <div>数量</div>
+                  <div>租期</div>
+                  <div>区域</div>
+                  <div></div>
+                </div>
                 {demands.map(d=>{
-                  const brand = d.gpu_brand||"";
+                  const gpuModel = d.gpu.replace(/^(NVIDIA|AMD|华为|Huawei)\s*/i, '');
                   const expanded = expandedDemandId===d.id;
                   const detailFields = [
-                    ["GPU 品牌", brand||null],["数量", `${d.count} ${d.count_unit||"卡"}`],
+                    ["GPU 品牌", d.gpu_brand||null],["数量", `${d.count} ${d.count_unit||"卡"}`],
                     ["区域", d.region||null],["机房位置", d.dc_location||null],
                     ["租赁周期", d.rental_months>0?`${d.rental_months} 个月`:null],
                     ["交付时间", d.delivery_time||null],["交付形式", d.delivery_type||d.delivery||null],
@@ -4669,29 +4677,22 @@ export default function App() {
                   ].filter(([,v])=>v);
                   return (
                     <div key={d.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                      <div onClick={()=>setExpandedDemandId(expanded?null:d.id)} style={{padding:"14px 16px",cursor:"pointer",background:expanded?"rgba(37,99,235,0.04)":"transparent"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontWeight:700,fontFamily:"'Bebas Neue',cursive",fontSize:15,letterSpacing:0.5,color:"#0f172a",marginBottom:4}}>{d.gpu}</div>
-                            {brand && <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>{brand}</div>}
-                            <div style={{display:"flex",flexWrap:"wrap",gap:"4px 12px",fontSize:12,color:"#64748b"}}>
-                              <span>{d.count} {d.count_unit||"卡"}</span>
-                              {d.rental_months>0 && <span>{d.rental_months}个月</span>}
-                              {d.region && <span>{d.region}</span>}
-                              {d.createdAt && <span style={{color:"#94a3b8"}}>{d.createdAt}</span>}
-                            </div>
-                          </div>
-                          <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
-                            <button onClick={e=>{e.stopPropagation();setShareDemand(d);}} style={{padding:"5px 10px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
-                            <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:13,color:expanded?"#2563eb":"#64748b"}}>
-                              {expanded?"▲":"▼"}
-                            </span>
-                          </div>
+                      {/* Collapsed row */}
+                      <div onClick={()=>setExpandedDemandId(expanded?null:d.id)} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 24px",gap:"0 8px",padding:"12px",cursor:"pointer",background:expanded?"rgba(37,99,235,0.04)":"transparent",alignItems:"center"}}>
+                        <div style={{fontSize:13,fontWeight:600,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{gpuModel}</div>
+                        <div style={{fontSize:12,color:"#64748b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.count} {d.count_unit||"卡"}</div>
+                        <div style={{fontSize:12,color:"#64748b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.rental_months>0?`${d.rental_months}个月`:"-"}</div>
+                        <div style={{fontSize:12,color:"#64748b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.region||"-"}</div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:24,height:24,borderRadius:6,background:expanded?"rgba(37,99,235,0.12)":"#f1f5f9",border:`1px solid ${expanded?"rgba(37,99,235,0.25)":"#e2e8f0"}`,fontSize:11,color:expanded?"#2563eb":"#64748b"}}>
+                            {expanded?"▲":"▼"}
+                          </span>
                         </div>
                       </div>
+                      {/* Expanded detail */}
                       {expanded && (
-                        <div style={{padding:"12px 16px 16px",background:"rgba(37,99,235,0.03)",borderTop:"2px solid #2563eb"}}>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 16px"}}>
+                        <div style={{padding:"12px",background:"rgba(37,99,235,0.03)",borderTop:"2px solid #2563eb"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 16px",marginBottom:12}}>
                             {detailFields.map(([label,value])=>(
                               <div key={label} style={{minWidth:0}}>
                                 <div style={{fontSize:10,color:"#94a3b8",fontWeight:600,letterSpacing:0.3,marginBottom:2,textTransform:"uppercase"}}>{label}</div>
@@ -4699,6 +4700,7 @@ export default function App() {
                               </div>
                             ))}
                           </div>
+                          <button onClick={e=>{e.stopPropagation();setShareDemand(d);}} style={{width:"100%",padding:"8px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
                         </div>
                       )}
                     </div>
