@@ -404,9 +404,16 @@ function PublishModal({ vendor, onClose, onPublish }) {
         </div>
         <div>
           <label style={lbl}>数量单位 *</label>
-          <select value={form.countUnit} onChange={set("countUnit")} style={inp}>
-            <option>台</option><option>卡</option>
-          </select>
+          <div style={{display:"flex",gap:16,alignItems:"center",height:40}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}>
+              <input type="radio" name="countUnit" value="台" checked={form.countUnit==="台"} onChange={set("countUnit")} style={{cursor:"pointer"}} />
+              台
+            </label>
+            <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}>
+              <input type="radio" name="countUnit" value="卡" checked={form.countUnit==="卡"} onChange={set("countUnit")} style={{cursor:"pointer"}} />
+              卡
+            </label>
+          </div>
         </div>
       </div>
       <div style={row2}>
@@ -1843,7 +1850,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) 
   const [sent, setSent] = useState(false);
   const empty = {
     brand:"", gpuModel:"", vram:"",
-    delivery:"裸金属", count:"", billingUnit:"台/月",
+    delivery:"裸金属", count:"", billingUnit:"台/月", countUnit:"台",
     price:"", currency:"人民币",
     region:"国内", dcLocation:"",
     contract:"", paymentTerms:"",
@@ -1940,6 +1947,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) 
           available: form.status === "可售", tags: [], desc: form.config,
           billing_unit: form.billingUnit,
           contact_name: form.contactName || null,
+          count_unit: form.countUnit || "台",
         }),
       });
       if (!rRes.ok) throw new Error("资源发布失败：" + await rRes.text());
@@ -2037,8 +2045,22 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) 
         </div>
         <div style={row2}>
           <div><label style={lbl}>可租数量 *</label><input value={form.count} onChange={set("count")} type="number" min="1" placeholder="256" style={inp} /></div>
-          <div><label style={lbl}>计费单位 *</label><select value={form.billingUnit} onChange={set("billingUnit")} style={inp}><option>台/月</option><option>卡/时</option></select></div>
+          <div>
+            <label style={lbl}>数量单位 *</label>
+            <div style={{display:"flex",gap:16,alignItems:"center",height:40}}>
+              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}>
+                <input type="radio" name="countUnit" value="台" checked={form.countUnit==="台"} onChange={set("countUnit")} style={{cursor:"pointer"}} />
+                台
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:14}}>
+                <input type="radio" name="countUnit" value="卡" checked={form.countUnit==="卡"} onChange={set("countUnit")} style={{cursor:"pointer"}} />
+                卡
+              </label>
+            </div>
+          </div>
         </div>
+        <div style={row2}>
+          <div><label style={lbl}>计费单位 *</label><select value={form.billingUnit} onChange={set("billingUnit")} style={inp}><option>台/月</option><option>卡/时</option></select></div>
         <div style={row2}>
           <div><label style={lbl}>单价 *</label><input value={form.price} onChange={set("price")} type="number" min="0" step="0.01" placeholder="75000" style={inp} /></div>
           <div><label style={lbl}>货币 *</label><select value={form.currency} onChange={set("currency")} style={inp}><option>人民币</option><option>美金</option></select></div>
