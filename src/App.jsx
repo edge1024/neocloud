@@ -743,40 +743,6 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
         <div />
       </div>
 
-      {/* 配置要求 */}
-      <div style={sl}>配置要求</div>
-      <div style={row2}>
-        <div>
-          <label style={lbl}>存储要求</label>
-          <textarea value={form.storageReq} onChange={set("storageReq")} rows={3} placeholder="SSD容量、IOPS等" style={{...inp,resize:"vertical"}} />
-        </div>
-        <div />
-      </div>
-      <div style={row2}>
-        <div>
-          <label style={lbl}>带宽要求</label>
-          <input value={form.bandwidthReq} onChange={set("bandwidthReq")} placeholder="如：万兆上行、100Gbps" style={inp} />
-        </div>
-        <div>
-          <label style={lbl}>公网 IP 要求</label>
-          <input value={form.publicIpReq} onChange={set("publicIpReq")} placeholder="如：独立公网IP×4" style={inp} />
-        </div>
-      </div>
-      <div style={row2}>
-        <div>
-          <label style={lbl}>额外 CPU 需求</label>
-          <select value={form.needExtraCpu} onChange={set("needExtraCpu")} style={inp}>
-            <option>否</option><option>是</option>
-          </select>
-        </div>
-        {form.needExtraCpu === "是" && (
-          <div>
-            <label style={lbl}>CPU 配置补充</label>
-            <input value={form.extraCpuConfig} onChange={set("extraCpuConfig")} placeholder="如：2×Intel Xeon 32C" style={inp} />
-          </div>
-        )}
-      </div>
-
       {/* 补充信息 */}
       <div style={sl}>补充信息</div>
       <div>
