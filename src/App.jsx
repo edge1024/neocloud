@@ -4489,14 +4489,13 @@ export default function App() {
 
         {/* Resources */}
         {tabView==="resources" && <>
-          {/* 发布需求 banner */}
-          <div style={{background:"rgba(37,99,235,0.05)",border:"1px solid rgba(37,99,235,0.15)",borderRadius:12,padding:"13px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-            <div style={{fontSize:13,color:"#374151",lineHeight:1.5}}>
-              <span style={{marginRight:6}}>📋</span>
-              找不到合适的资源？发布需求，供应商主动来找您
-              <span style={{fontSize:11,color:"#94a3b8",marginLeft:8}}>· 将同步至【需求列表】并推送至 {demSubscriberCount} 位订阅用户</span>
+          {/* 列表标题 + 发布入口 */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <div>
+              <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:26,fontWeight:700,marginBottom:4,color:"#0f172a"}}>资源列表</h2>
+              <p style={{color:"#64748b",fontSize:13}}>{filtered.length} 条资源 · 买家可直接联系供应商</p>
             </div>
-            <button onClick={()=>{ if(!authVendor){ setPendingPost("demand"); setShowAuth("login"); } else setShowPostReq(true); }} style={{...primaryBtn,padding:"8px 20px",fontSize:13,whiteSpace:"nowrap",flexShrink:0}}>发布需求</button>
+            <button onClick={()=>{ if(!authVendor){ setPendingPost("resource"); setShowAuth("login"); } else setShowPostRes(true); }} style={{...primaryBtn,padding:"10px 22px",fontSize:13}}>发布资源</button>
           </div>
 
           {/* Filters */}
@@ -4584,17 +4583,7 @@ export default function App() {
               <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:26,fontWeight:700,marginBottom:6,color:"#0f172a"}}>需求列表</h2>
               <p style={{color:"#64748b",fontSize:13}}>{demands.length} 条需求 · 供应商可直接联系报价</p>
             </div>
-            <button onClick={()=>{ if(!authVendor){ setPendingPost("resource"); setShowAuth("login"); } else setShowPostRes(true); }} style={{...primaryBtn,padding:"10px 22px",fontSize:13}}>发布资源</button>
-          </div>
-
-          {/* 发布资源 banner */}
-          <div style={{background:"rgba(37,99,235,0.05)",border:"1px solid rgba(37,99,235,0.15)",borderRadius:12,padding:"13px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-            <div style={{fontSize:13,color:"#374151",lineHeight:1.5}}>
-              <span style={{marginRight:6}}>🖥️</span>
-              有算力资源可供出租？发布资源，买家主动联系您
-              <span style={{fontSize:11,color:"#94a3b8",marginLeft:8}}>· 将同步至【资源列表】并推送至 {resSubscriberCount} 位订阅用户</span>
-            </div>
-            <button onClick={()=>{ if(!authVendor){ setPendingPost("resource"); setShowAuth("login"); } else setShowPostRes(true); }} style={{padding:"8px 18px",background:"transparent",border:"1px solid rgba(37,99,235,0.3)",borderRadius:8,color:"#2563eb",fontSize:13,cursor:"pointer",fontWeight:600,whiteSpace:"nowrap",flexShrink:0}}>发布资源</button>
+            <button onClick={()=>{ if(!authVendor){ setPendingPost("demand"); setShowAuth("login"); } else setShowPostReq(true); }} style={{...primaryBtn,padding:"10px 22px",fontSize:13}}>发布需求</button>
           </div>
 
           {/* Demand Table */}
