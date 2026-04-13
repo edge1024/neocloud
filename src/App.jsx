@@ -1846,7 +1846,7 @@ function PostRequirementModal({ onClose, onSuccess, subscriberCount=0, vendor=nu
 }
 
 // ─── Post Resource From Demand Modal ─────────────────────────────────────────
-function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) {
+function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, authVendor=null }) {
   const [sent, setSent] = useState(false);
   const empty = {
     brand:"", gpuModel:"", vram:"",
@@ -1928,13 +1928,18 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) 
     try {
       const gpuLabel = `${form.brand} ${form.gpuModel}`;
 
-      // 1. 保存供应商
-      const vRes = await fetch(`${API}/api/vendors`, {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ name:form.company, location:form.region||"国内" }),
-      });
-      if (!vRes.ok) throw new Error("供应商创建失败：" + await vRes.text());
-      const savedVendor = await vRes.json();
+      // 1. 已登录供应商直接复用，否则新建
+      let savedVendor;
+      if (authVendor) {
+        savedVendor = authVendor;
+      } else {
+        const vRes = await fetch(`${API}/api/vendors`, {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ name:form.company, location:form.region||"国内" }),
+        });
+        if (!vRes.ok) throw new Error("供应商创建失败：" + await vRes.text());
+        savedVendor = await vRes.json();
+      }
 
       // 2. 保存资源
       const rRes = await fetch(`${API}/api/resources`, {
@@ -4765,7 +4770,7 @@ export default function App() {
         setTabView("demands");
         fetch(`${API}/api/demands`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...d,vendor_id:authVendor?.id??null})}).catch(()=>{});
       }} subscriberCount={demSubscriberCount} />}
-      {showPostRes&&<PostResourceFromDemandModal onClose={()=>setShowPostRes(false)} onSuccess={(v,r)=>{
+      {showPostRes&&<PostResourceFromDemandModal onClose={()=>setShowPostRes(false)} authVendor={authVendor} onSuccess={(v,r)=>{
         handlePublishFromDemand(v,r);
       }} subscriberCount={resSubscriberCount} />}
       {showSubscribe&&<SubscribeModal onClose={()=>setShowSubscribe(false)} onSuccess={handleSubscribe} />}
