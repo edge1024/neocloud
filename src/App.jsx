@@ -446,7 +446,7 @@ function PublishModal({ vendor, onClose, onPublish }) {
           </select>
         </div>
         <div>
-          <label style={lbl}>数据中心位置 *</label>
+          <label style={lbl}>机房位置 *</label>
           <input value={form.dcLocation} onChange={set("dcLocation")} placeholder="如：内蒙古、北京、新加坡" style={inp} />
         </div>
       </div>
@@ -911,7 +911,7 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
   const [slug, setSlug] = useState(vendor.slug || "");
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugMsg, setSlugMsg] = useState("");
-  const [contact, setContact] = useState({ contactName: vendor.contactName||"", contactPhone: vendor.contactPhone||"", email: vendor.email||"" });
+  const [contact, setContact] = useState({ contactName: vendor.contactName||"", contactPhone: vendor.contactPhone||"", wechat: vendor.wechat||"", email: vendor.email||"" });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMsg, setContactMsg] = useState("");
   const [dashTab, setDashTab] = useState("resources"); // "resources" | "demands" | "memory"
@@ -974,7 +974,7 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
     try {
       const res = await fetch(`${API}/api/vendors/contact`, {
         method:"PATCH", headers:{"Content-Type":"application/json", Authorization:`Bearer ${vendor._token}`},
-        body: JSON.stringify({ contact_name: contact.contactName, contact_phone: contact.contactPhone, email: contact.email }),
+        body: JSON.stringify({ contact_name: contact.contactName, contact_phone: contact.contactPhone, wechat: contact.wechat, email: contact.email }),
       });
       setContactMsg(res.ok ? "✓ 已保存，分享页将显示联系方式" : "保存失败");
     } catch { setContactMsg("网络错误"); }
@@ -1052,6 +1052,10 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
             <div style={{marginBottom:12}}>
               <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>联系电话</div>
               <input value={contact.contactPhone} onChange={e=>setContact(c=>({...c,contactPhone:e.target.value}))} placeholder="手机号或固话" style={{...inp,fontSize:13}} />
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>微信号</div>
+              <input value={contact.wechat} onChange={e=>setContact(c=>({...c,wechat:e.target.value}))} placeholder="微信号（选填）" style={{...inp,fontSize:13}} />
             </div>
             <div style={{marginBottom:12,gridColumn:"1/-1"}}>
               <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>电子邮箱</div>
@@ -1378,6 +1382,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   const contactName    = resource.resContactName || resource.contactName  || vendor?.contactName  || "";
   const contactPhone   = resource.contactPhone   || vendor?.contactPhone  || "";
   const contactEmail   = resource.contactEmail   || vendor?.email         || "";
+  const contactWechat  = resource.contactWechat  || vendor?.wechat        || "";
   const vendorLocation = resource.vendorLocation || vendor?.location      || "";
   const shareToken     = resource.shareToken     || vendor?.shareToken    || "";
 
@@ -1388,7 +1393,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
     ["GPU 品牌",   brand],
     ["GPU 型号",   resource.gpu],
     ["数量",       `${resource.availableQuantity??resource.count} ${countUnit}`],
-    ["单价",       resource.price != null ? `¥${resource.price}/卡/时` : null],
+    ["单价",       resource.price != null ? `${resource.price}/${resource.countUnit||"卡"}/时` : null],
     ["货币",       resource.currency || null],
     ["区域",       resource.region],
     ["机房位置",   resource.dcLocation || vendorLocation],
@@ -1405,6 +1410,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
     ["公司名称", vendorName],
     ["联系人",   contactName],
     ["联系电话", contactPhone],
+    ["微信",     contactWechat],
     ["电子邮箱", contactEmail],
   ].filter(([, v]) => v);
 
@@ -2042,7 +2048,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) 
         <div style={sl}>位置信息</div>
         <div style={row2}>
           <div><label style={lbl}>区域 *</label><select value={form.region} onChange={set("region")} style={inp}><option>国内</option><option>海外</option></select></div>
-          <div><label style={lbl}>数据中心位置 *</label><input value={form.dcLocation} onChange={set("dcLocation")} placeholder="如：内蒙古、北京、新加坡" style={inp} /></div>
+          <div><label style={lbl}>机房位置 *</label><input value={form.dcLocation} onChange={set("dcLocation")} placeholder="如：内蒙古、北京、新加坡" style={inp} /></div>
         </div>
 
         <div style={sl}>商务条款</div>
@@ -4368,7 +4374,7 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:"#f1f5f9",color:"#0f172a",fontFamily:"'Noto Sans SC',system-ui,sans-serif"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px} input::placeholder,textarea::placeholder{color:#94a3b8} select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;} @media(max-width:768px){.desk-only{display:none!important} .mob-menu{display:none;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;padding:8px 16px;z-index:48;gap:4px;backdrop-filter:blur(12px)} .mob-menu.open{display:flex!important} .mob-show{display:flex!important} .main-wrap{padding:20px 16px!important} .gpu-row{flex-wrap:wrap!important;padding:10px 14px 10px 30px!important;gap:8px!important} .filter-bar{gap:6px!important;padding:10px 12px!important} .share-main{padding:16px 12px!important}} @media(min-width:769px){.mob-show{display:none!important} .mob-menu{display:none!important}} .md-body h1,.md-body h2,.md-body h3{font-family:'Noto Serif SC',serif;font-weight:700;color:#0f172a;margin-top:20px;margin-bottom:8px} .md-body h1{font-size:22px} .md-body h2{font-size:18px} .md-body h3{font-size:16px} .md-body ul,.md-body ol{padding-left:20px;margin-bottom:12px} .md-body li{margin-bottom:4px;color:#374151} .md-body p{margin-bottom:10px;color:#374151} .md-body code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace} .md-body pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:12px}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px} input::placeholder,textarea::placeholder{color:#94a3b8} select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;} @media(max-width:768px){.desk-only{display:none!important} .mob-menu{display:none;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;padding:8px 16px;z-index:48;gap:4px;backdrop-filter:blur(12px)} .mob-menu.open{display:flex!important} .mob-show{display:flex!important} .main-wrap{padding:20px 16px!important} .gpu-row{flex-wrap:wrap!important;padding:10px 14px 10px 30px!important;gap:8px!important} .filter-bar{gap:6px!important;padding:10px 12px!important} .share-main{padding:16px 12px!important}} @media(min-width:769px){.mob-show{display:none!important} .mob-menu{display:none!important}} .md-body h1,.md-body h2,.md-body h3{font-family:'Noto Serif SC',serif;font-weight:700;color:#0f172a;margin-top:20px;margin-bottom:8px} .md-body h1{font-size:22px} .md-body h2{font-size:18px} .md-body h3{font-size:16px} .md-body ul,.md-body ol{padding-left:20px;margin-bottom:12px} .md-body li{margin-bottom:4px;color:#374151} .md-body p{margin-bottom:10px;color:#374151} .md-body code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace} .md-body pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:12px} input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0} input[type=number]{-moz-appearance:textfield}`}</style>
 
       {/* Nav */}
       <nav style={{borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:60,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>

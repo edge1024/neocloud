@@ -109,6 +109,7 @@ async def list_vendors():
             COALESCE(v.slug, v.id::text)            AS "shareToken",
             COALESCE(v.contact_name,'')             AS "contactName",
             COALESCE(v.contact_phone,'')            AS "contactPhone",
+            COALESCE(v.wechat,'')                   AS wechat,
             COALESCE(v.email,'')                    AS email
         FROM vendors v
         WHERE v.status = 'active'
@@ -208,6 +209,7 @@ async def list_resources(
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
             COALESCE(v.contact_phone,'')                                         AS "contactPhone",
+            COALESCE(v.wechat,'')                                                AS "contactWechat",
             COALESCE(v.email,'')                                                 AS "contactEmail",
             COALESCE(v.location,'')                                              AS "vendorLocation",
             COALESCE(v.slug, v.id::text)                                         AS "shareToken",
@@ -220,7 +222,7 @@ async def list_resources(
         LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
         LEFT JOIN tags     t   ON t.id   = rtm.tag_id
         WHERE {where}
-        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.email, v.location, v.slug
+        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.wechat, v.email, v.location, v.slug
         {having}
         ORDER BY r.id
     """
@@ -263,6 +265,7 @@ async def get_resource(resource_id: int):
             COALESCE(v.company_name,'')                                          AS "vendorName",
             COALESCE(v.contact_name,'')                                          AS "contactName",
             COALESCE(v.contact_phone,'')                                         AS "contactPhone",
+            COALESCE(v.wechat,'')                                                AS "contactWechat",
             COALESCE(v.email,'')                                                 AS "contactEmail",
             COALESCE(v.location,'')                                              AS "vendorLocation",
             COALESCE(v.slug, v.id::text)                                         AS "shareToken",
@@ -275,7 +278,7 @@ async def get_resource(resource_id: int):
         LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
         LEFT JOIN tags     t   ON t.id   = rtm.tag_id
         WHERE r.id = $1 AND r.is_visible = TRUE
-        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.email, v.location, v.slug
+        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.wechat, v.email, v.location, v.slug
     """
     async with pool.acquire() as conn:
         row = await conn.fetchrow(sql, resource_id)
@@ -819,7 +822,7 @@ VENDOR_SELECT = """
     SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
            rating::float, review_count AS reviews, location,
            TO_CHAR(joined_at,'YYYY-MM') AS joined, slug,
-           contact_name AS "contactName", contact_phone AS "contactPhone", email
+           contact_name AS "contactName", contact_phone AS "contactPhone", wechat, email
     FROM vendors WHERE user_id = $1
 """
 
@@ -1005,6 +1008,7 @@ class VendorSlug(BaseModel):
 class VendorContact(BaseModel):
     contact_name: str = ""
     contact_phone: str = ""
+    wechat: str = ""
     email: str = ""
 
 @app.patch("/api/vendors/contact")
@@ -1012,8 +1016,8 @@ async def update_vendor_contact(body: VendorContact, user=Depends(current_user))
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE vendors SET contact_name=$1, contact_phone=$2, email=$3 WHERE id=$4",
-            body.contact_name or None, body.contact_phone or None, body.email or None,
+            "UPDATE vendors SET contact_name=$1, contact_phone=$2, wechat=$3, email=$4 WHERE id=$5",
+            body.contact_name or None, body.contact_phone or None, body.wechat or None, body.email or None,
             user["vendor_id"]
         )
     return {"ok": True}
@@ -1051,7 +1055,7 @@ async def get_share_page(share_token: str):
             SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
                    rating::float, review_count AS reviews, location,
                    TO_CHAR(joined_at,'YYYY-MM') AS joined,
-                   contact_name AS "contactName", contact_phone AS "contactPhone", email
+                   contact_name AS "contactName", contact_phone AS "contactPhone", wechat, email
             FROM vendors WHERE slug=$1 AND status='active'
         """, share_token)
         if not vendor:
@@ -1063,7 +1067,7 @@ async def get_share_page(share_token: str):
                 SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
                        rating::float, review_count AS reviews, location,
                        TO_CHAR(joined_at,'YYYY-MM') AS joined,
-                       contact_name AS "contactName", contact_phone AS "contactPhone", email
+                       contact_name AS "contactName", contact_phone AS "contactPhone", wechat, email
                 FROM vendors WHERE id=$1 AND status='active'
             """, vendor_id)
         if not vendor:
