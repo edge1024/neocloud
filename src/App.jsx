@@ -2061,6 +2061,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0 }) 
         </div>
         <div style={row2}>
           <div><label style={lbl}>计费单位 *</label><select value={form.billingUnit} onChange={set("billingUnit")} style={inp}><option>台/月</option><option>卡/时</option></select></div>
+        </div>
         <div style={row2}>
           <div><label style={lbl}>单价 *</label><input value={form.price} onChange={set("price")} type="number" min="0" step="0.01" placeholder="75000" style={inp} /></div>
           <div><label style={lbl}>货币 *</label><select value={form.currency} onChange={set("currency")} style={inp}><option>人民币</option><option>美金</option></select></div>
