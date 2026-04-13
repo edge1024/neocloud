@@ -505,7 +505,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
     bandwidth:     resource.bandwidth  || "",
     count:         String(resource.count ?? ""),
     countUnit:     resource.countUnit  || "卡",
-    billingUnit:   resource.billingUnit|| "卡/时",
+    billingUnit:   resource.billingUnit|| "台/月",
     price:         String(resource.price ?? ""),
     currency:      resource.currency   || "人民币",
     region:        resource.region     || "国内",
@@ -681,7 +681,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
         <div>
           <label style={lbl}>计费单位</label>
           <select value={form.billingUnit} onChange={set("billingUnit")} style={inp}>
-            <option>卡/时</option><option>台/月</option>
+            <option>台/月</option><option>卡/时</option>
           </select>
         </div>
         <div>
@@ -1400,7 +1400,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
     ["GPU 品牌",   brand],
     ["GPU 型号",   resource.gpu],
     ["数量",       `${resource.availableQuantity??resource.count} ${countUnit}`],
-    ["单价",       resource.price != null ? `${resource.price}/${resource.countUnit||"卡"}/时` : null],
+    ["单价",       resource.price != null ? `${resource.price} ${resource.billingUnit||`${resource.countUnit||"卡"}/时`}` : null],
     ["货币",       resource.currency || null],
     ["区域",       resource.region],
     ["机房位置",   resource.dcLocation || vendorLocation],
@@ -4209,7 +4209,7 @@ function ResourceDetailPage({ resourceId }) {
   const qrLabel = `${r.availableQuantity??r.count}${countUnit} ${r.gpu} 租赁资源`;
   const fields = [
     ["GPU 品牌", brand],["GPU 型号", r.gpu],["数量", `${r.availableQuantity??r.count} ${countUnit}`],
-    ["单价", r.price!=null?`¥${r.price}/卡/时`:null],
+    ["单价", r.price!=null?`${r.price} ${r.billingUnit||`${r.countUnit||"卡"}/时`}`:null],
     ["货币", r.currency||null],
     ["区域", r.region||null],["机房位置", r.dcLocation||r.vendorLocation||null],
     ["状态", r.status||(r.available?"在线":null)],
