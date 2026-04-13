@@ -1361,23 +1361,31 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
 
   const shareText = `【GPU 资源】${resource.gpu}\n供应商：${vendorName}  ${resource.region}\n数量：${resource.availableQuantity??resource.count} ${countUnit}\n状态：${resource.status||"在线"}\n来源：${shareUrl}`;
 
-  // 资源基本信息 — 空值跳过
+  // 基本信息（两列布局）
   const basicItems = [
     ["GPU 品牌",   brand],
-    ["GPU 型号",   resource.gpu],
-    ["数量",       `${resource.availableQuantity??resource.count} ${countUnit}`],
-    ["单价",       resource.price != null ? String(resource.price) : null],
-    ["数量单位",   resource.countUnit || null],
-    ["计费单位",   resource.billingUnit || null],
-    ["货币",       resource.currency || null],
     ["区域",       resource.region],
+    ["GPU 型号",   resource.gpu],
     ["机房位置",   resource.dcLocation || vendorLocation],
+    ["数量",       `${resource.availableQuantity??resource.count} ${countUnit}`],
     ["状态",       resource.status || (resource.available ? "在线" : null)],
-    ["显存",       resource.mem],
-    ["内存带宽",   resource.bandwidth],
-    ["交付形式",   resource.delivery],
-    ["可用数量",   resource.availableQuantity != null ? String(resource.availableQuantity) : null],
+    ["单价",       resource.price != null ? String(resource.price) : null],
     ["发布时间",   resource.createdAt],
+    ["数量单位",   resource.countUnit || null],
+    ["显存",       resource.mem],
+    ["计费单位",   resource.billingUnit || null],
+    ["内存带宽",   resource.bandwidth],
+    ["货币",       resource.currency || null],
+    ["交付形式",   resource.delivery],
+  ].filter(([, v]) => v);
+
+  // 配置信息（单列，每行一条）
+  const configItems = [
+    ["配置要求", resource.desc || null],
+    ["存储要求", resource.storageReq || null],
+    ["带宽要求", resource.bandwidthReq || null],
+    ["公网 IP", resource.publicIpReq || null],
+    ["CPU 配置", resource.extraCpuConfig || null],
   ].filter(([, v]) => v);
 
   // 联系人信息 — 空值跳过
@@ -1390,19 +1398,8 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   ].filter(([, v]) => v);
 
   const SectionLabel = ({ children }) => (
-    <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",letterSpacing:1,textTransform:"uppercase",marginBottom:8,marginTop:4}}>
+    <div style={{fontSize:11,fontWeight:700,color:"#94a3b8",letterSpacing:1,textTransform:"uppercase",marginBottom:10,marginTop:16,borderTop:"1px solid #f0f0f0",paddingTop:16}}>
       {children}
-    </div>
-  );
-
-  const InfoGrid = ({ items }) => (
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:14}}>
-      {items.map(([k, v]) => (
-        <div key={k} style={{background:"#f8fafc",borderRadius:8,padding:"9px 12px",border:"1px solid #e2e8f0",minWidth:0}}>
-          <div style={{fontSize:10,color:"#94a3b8",marginBottom:2,fontWeight:700,letterSpacing:0.5}}>{k}</div>
-          <div style={{fontSize:13,fontWeight:600,color:"#374151",wordBreak:"break-all"}}>{v}</div>
-        </div>
-      ))}
     </div>
   );
 
@@ -1412,7 +1409,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
         ? <ShareSheet title={resource.gpu} shareText={shareText} shareUrl={shareUrl} qrLabel={qrLabel} onClose={()=>setShowShare(false)} />
         : <>
           {/* Header */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
             <div>
               <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,letterSpacing:1.5,color:"#0f172a"}}>{resource.gpu}</div>
               <span style={{display:"inline-block",marginTop:4,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(37,99,235,0.08)",color:"#2563eb"}}>{brand}</span>
@@ -1420,9 +1417,16 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
             <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer",lineHeight:1}}>✕</button>
           </div>
 
-          {/* 资源信息 */}
-          <SectionLabel>资源信息</SectionLabel>
-          <InfoGrid items={basicItems} />
+          {/* 基本信息（两列布局）*/}
+          <SectionLabel>基本信息</SectionLabel>
+          <div className="resource-detail-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 16px",marginBottom:12}}>
+            {basicItems.map(([k, v]) => (
+              <div key={k} style={{display:"flex",alignItems:"baseline",minWidth:0}}>
+                <span style={{fontSize:12,color:"#999",flexShrink:0}}>{k}</span>
+                <span style={{fontSize:14,color:"#333",marginLeft:8,wordBreak:"break-word"}}>{v}</span>
+              </div>
+            ))}
+          </div>
 
           {/* Tags */}
           {resource.tags?.length > 0 && (
@@ -1431,22 +1435,28 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
             </div>
           )}
 
-          {/* 描述 */}
-          {resource.desc && (
-            <div style={{fontSize:13,color:"#475569",lineHeight:1.7,borderLeft:"2px solid #bfdbfe",paddingLeft:12,marginBottom:14}}>
-              {resource.desc}
+          {/* 配置信息（单列，每行一条）*/}
+          {configItems.length > 0 && <>
+            <SectionLabel>配置</SectionLabel>
+            <div style={{marginBottom:12}}>
+              {configItems.map(([k, v]) => (
+                <div key={k} style={{display:"flex",marginBottom:6,minWidth:0}}>
+                  <span style={{fontSize:12,color:"#999",minWidth:80,flexShrink:0}}>{k}:</span>
+                  <span style={{fontSize:14,color:"#333",wordBreak:"break-word",flex:1}}>{v}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </>}
 
-          {/* 联系方式 */}
+          {/* 联系方式（两列布局）*/}
           {contactItems.length > 0 && <>
             <SectionLabel>联系方式</SectionLabel>
-            <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px"}}>
+            <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:12,marginBottom:12}}>
+              <div className="resource-detail-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 16px"}}>
                 {contactItems.map(([k, v]) => (
-                  <div key={k} style={{fontSize:12,minWidth:0}}>
-                    <span style={{color:"#60a5fa",fontWeight:600}}>{k}：</span>
-                    <span style={{color:"#1e3a5f",wordBreak:"break-all"}}>{v}</span>
+                  <div key={k} style={{display:"flex",alignItems:"baseline",minWidth:0}}>
+                    <span style={{fontSize:12,color:"#60a5fa",fontWeight:600,flexShrink:0}}>{k}:</span>
+                    <span style={{fontSize:14,color:"#1e3a5f",marginLeft:6,wordBreak:"break-all"}}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -4372,7 +4382,7 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:"#f1f5f9",color:"#0f172a",fontFamily:"'Noto Sans SC',system-ui,sans-serif"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px} input::placeholder,textarea::placeholder{color:#94a3b8} select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;} @media(max-width:768px){.desk-only{display:none!important} .mob-menu{display:none;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;padding:8px 16px;z-index:48;gap:4px;backdrop-filter:blur(12px)} .mob-menu.open{display:flex!important} .mob-show{display:flex!important} .main-wrap{padding:20px 16px!important} .gpu-row{flex-wrap:wrap!important;padding:10px 14px 10px 30px!important;gap:8px!important} .filter-bar{gap:6px!important;padding:10px 12px!important} .share-main{padding:16px 12px!important}} @media(min-width:769px){.mob-show{display:none!important} .mob-menu{display:none!important}} .md-body h1,.md-body h2,.md-body h3{font-family:'Noto Serif SC',serif;font-weight:700;color:#0f172a;margin-top:20px;margin-bottom:8px} .md-body h1{font-size:22px} .md-body h2{font-size:18px} .md-body h3{font-size:16px} .md-body ul,.md-body ol{padding-left:20px;margin-bottom:12px} .md-body li{margin-bottom:4px;color:#374151} .md-body p{margin-bottom:10px;color:#374151} .md-body code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace} .md-body pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:12px} input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0} input[type=number]{-moz-appearance:textfield}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;600;700&display=swap'); *{margin:0;padding:0;box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px} input::placeholder,textarea::placeholder{color:#94a3b8} select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;} @media(max-width:768px){.desk-only{display:none!important} .mob-menu{display:none;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);border-bottom:1px solid #e2e8f0;padding:8px 16px;z-index:48;gap:4px;backdrop-filter:blur(12px)} .mob-menu.open{display:flex!important} .mob-show{display:flex!important} .main-wrap{padding:20px 16px!important} .gpu-row{flex-wrap:wrap!important;padding:10px 14px 10px 30px!important;gap:8px!important} .filter-bar{gap:6px!important;padding:10px 12px!important} .share-main{padding:16px 12px!important}} @media(max-width:480px){.resource-detail-grid{grid-template-columns:1fr!important}} @media(min-width:769px){.mob-show{display:none!important} .mob-menu{display:none!important}} .md-body h1,.md-body h2,.md-body h3{font-family:'Noto Serif SC',serif;font-weight:700;color:#0f172a;margin-top:20px;margin-bottom:8px} .md-body h1{font-size:22px} .md-body h2{font-size:18px} .md-body h3{font-size:16px} .md-body ul,.md-body ol{padding-left:20px;margin-bottom:12px} .md-body li{margin-bottom:4px;color:#374151} .md-body p{margin-bottom:10px;color:#374151} .md-body code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace} .md-body pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:12px} input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0} input[type=number]{-moz-appearance:textfield}`}</style>
 
       {/* Nav */}
       <nav style={{borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:60,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
