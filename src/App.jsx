@@ -110,7 +110,7 @@ function VendorModal({ vendor, resources, onClose, onContact }) {
         <div key={r.id} style={{background:"#f8fafc",borderRadius:12,padding:14,marginBottom:10,border:"1px solid #e2e8f0"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <span style={{fontWeight:600,fontSize:14,color:r.available?"#0f172a":"#94a3b8"}}>{r.gpu}</span>
-            <span style={{color:"#2563eb",fontWeight:700}}>¥{r.price}<span style={{fontSize:11,fontWeight:400,color:"#64748b"}}>/卡/时</span></span>
+            <span style={{color:"#2563eb",fontWeight:700}}>{r.price}<span style={{fontSize:11,fontWeight:400,color:"#64748b"}}> {r.billingUnit||`${r.countUnit||"卡"}/时`}</span></span>
           </div>
           <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>{r.mem} · {r.bandwidth||"—"} · {r.count}卡 · {r.region}</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
@@ -889,8 +889,8 @@ function ResourceCard({ r, token, onUpdate, onDelete }) {
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{localR.price}</div>
-            <div style={{fontSize:11,color:"#94a3b8"}}>元/卡/时</div>
+            <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>{localR.price}</div>
+            <div style={{fontSize:11,color:"#94a3b8"}}>{localR.billingUnit||`${localR.countUnit||"卡"}/时`}</div>
           </div>
           <button onClick={()=>setShowEdit(true)} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"1px solid #93c5fd",color:"#2563eb",background:"none",cursor:"pointer"}}>编辑</button>
           <button onClick={handleDelete} disabled={deleting} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:`1px solid ${confirmDelete?"#ef4444":"#e2e8f0"}`,background:confirmDelete?"#fef2f2":"transparent",color:confirmDelete?"#ef4444":"#94a3b8",cursor:"pointer"}}>
@@ -1539,7 +1539,7 @@ function GpuModelGroup({ gpu, items, vendors, onDetailClick }) {
         <div style={{display:"flex",alignItems:"center",gap:16,flexShrink:0}}>
           <span className="desk-only" style={{fontSize:12,color:"#94a3b8"}}>{items.length}个供应商</span>
           <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>
-            ¥{minPrice===maxPrice?minPrice:`${minPrice}~${maxPrice}`}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}>/卡/时</span>
+            {minPrice===maxPrice?minPrice:`${minPrice}~${maxPrice}`}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}> 起</span>
           </span>
           <div className="desk-only" style={{display:"flex",gap:4}}>{allTags.map(t=><Tag key={t} t={t} />)}</div>
           <span style={{fontSize:11,color:availableCount>0?"#2563eb":"#94a3b8",fontWeight:600,minWidth:46}}>{availableCount>0?`● ${availableCount}可用`:"● 售罄"}</span>
@@ -1568,7 +1568,7 @@ function GpuModelGroup({ gpu, items, vendors, onDetailClick }) {
                 <span className="desk-only" style={{fontSize:11,color:"#94a3b8"}}>⭐ {vendor?.rating||"—"}</span>
                 <span className="desk-only" style={{fontSize:12,color:"#64748b",minWidth:36}}>{r.count}卡</span>
                 <span className="desk-only" style={{fontSize:12,color:"#64748b",minWidth:28}}>{r.region}</span>
-                <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>¥{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}>/卡/时</span></span>
+                <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}> {r.billingUnit||`${r.countUnit||"卡"}/时`}</span></span>
                 <span style={{fontSize:11,color:r.available?"#2563eb":"#94a3b8",minWidth:40}}>{r.available?"● 可用":"● 售罄"}</span>
                 <span style={{fontSize:16,fontWeight:700,color:"#94a3b8",lineHeight:1}}>›</span>
               </div>
@@ -2117,7 +2117,7 @@ function VendorRow({ vendor, resources, onDetailClick, onContactClick, autoExpan
   const availableCount = resources.filter(r=>r.available).length;
   const minPrice = resources.length ? Math.min(...resources.map(r=>r.price)) : null;
   const shareUrl = `https://www.neocloud.market?vendor=${vendor.id}`;
-  const shareText = `【GPU 供应商】${vendor.name}\n评分：⭐${vendor.rating}（${vendor.reviews} 评价）· ${vendor.location}\n资源：${resources.length} 个 · 最低 ¥${minPrice??"—"}/卡/时起\n入驻：${vendor.joined}\n来源：${shareUrl}`;
+  const shareText = `【GPU 供应商】${vendor.name}\n评分：⭐${vendor.rating}（${vendor.reviews} 评价）· ${vendor.location}\n资源：${resources.length} 个 · 最低 ${minPrice??"—"} 起\n入驻：${vendor.joined}\n来源：${shareUrl}`;
 
   return (
     <div style={{border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",marginBottom:8,background:"#ffffff",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
@@ -2135,7 +2135,7 @@ function VendorRow({ vendor, resources, onDetailClick, onContactClick, autoExpan
         <div style={{display:"flex",alignItems:"center",gap:18,flexShrink:0}}>
           <span style={{fontSize:12,color:"#64748b"}}>⭐ {vendor.rating}（{vendor.reviews}评价）</span>
           <span style={{fontSize:12,color:"#94a3b8"}}>{resources.length}个资源</span>
-          {minPrice!==null&&<span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{minPrice}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}>/卡/时起</span></span>}
+          {minPrice!==null&&<span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>{minPrice}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}> 起</span></span>}
           <span style={{fontSize:11,color:availableCount>0?"#2563eb":"#94a3b8",fontWeight:600,minWidth:46}}>{availableCount>0?`● ${availableCount}可用`:"● 无可用"}</span>
           <button onClick={e=>{e.stopPropagation();setShowShare(true);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid #e2e8f0",borderRadius:6,color:"#64748b",fontSize:12,cursor:"pointer"}}>分享</button>
           <button onClick={e=>{e.stopPropagation();onContactClick(vendor);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid rgba(37,99,235,0.3)",borderRadius:6,color:"#2563eb",fontSize:12,fontWeight:600,cursor:"pointer"}}>联系</button>
@@ -2154,7 +2154,7 @@ function VendorRow({ vendor, resources, onDetailClick, onContactClick, autoExpan
               <div style={{display:"flex",gap:4}}>{r.tags.slice(0,2).map(t=><Tag key={t} t={t} />)}</div>
               <span style={{fontSize:12,color:"#64748b",minWidth:36}}>{r.count}卡</span>
               <span style={{fontSize:12,color:"#64748b",minWidth:28}}>{r.region}</span>
-              <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>¥{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}>/卡/时</span></span>
+              <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}> {r.billingUnit||`${r.countUnit||"卡"}/时`}</span></span>
               <span style={{fontSize:11,color:r.available?"#2563eb":"#94a3b8",minWidth:40}}>{r.available?"● 可用":"● 售罄"}</span>
               <span style={{fontSize:13,color:"#94a3b8"}}>›</span>
             </div>
@@ -3066,8 +3066,8 @@ function VendorSharePage({ shareToken }) {
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{(r.tags||[]).map(t=><Tag key={t} t={t} />)}</div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>¥{r.price}</div>
-                  <div style={{fontSize:11,color:"#94a3b8"}}>元/卡/时</div>
+                  <div style={{fontSize:26,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive"}}>{r.price}</div>
+                  <div style={{fontSize:11,color:"#94a3b8"}}>{r.billingUnit||`${r.countUnit||"卡"}/时`}</div>
                   <div style={{marginTop:6,fontSize:11,padding:"3px 10px",borderRadius:10,background:"#f0fdf4",color:"#16a34a",display:"inline-block"}}>{r.status}</div>
                   <div style={{marginTop:8}}>
                     <ShareQrButton url={qrUrl} label={qrLabel} />
@@ -3728,7 +3728,7 @@ function AdminPanel({ onExit, token }) {
                                   <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#f8fafc",borderRadius:8,border:"1px solid #f1f5f9"}}>
                                     <div style={{flex:1,minWidth:0}}>
                                       <span style={{fontSize:13,fontWeight:600,color:"#0f172a",marginRight:8}}>{r.gpu}</span>
-                                      <span style={{fontSize:12,color:"#64748b"}}>{r.count}卡 · ¥{r.price}/时</span>
+                                      <span style={{fontSize:12,color:"#64748b"}}>{r.count}{r.countUnit||"卡"} · {r.price} {r.billingUnit||`${r.countUnit||"卡"}/时`}</span>
                                     </div>
                                     <span style={{fontSize:11,color:"#64748b",flexShrink:0}}>{r.status||"在线"}</span>
                                     <button onClick={()=>toggleResVisibility(r)} style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:`1px solid ${r.is_visible!==false?"#93c5fd":"#e2e8f0"}`,color:r.is_visible!==false?"#2563eb":"#94a3b8",background:"none",cursor:"pointer",flexShrink:0}}>
