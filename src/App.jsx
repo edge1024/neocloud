@@ -888,6 +888,10 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMsg, setContactMsg] = useState("");
   const [dashTab, setDashTab] = useState("resources"); // "resources" | "demands" | "memory"
+  const [pwForm, setPwForm] = useState({ current:"", next:"", confirm:"" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState("");
+  const [pwShow, setPwShow] = useState({ current:false, next:false, confirm:false });
   const [myDemands, setMyDemands] = useState([]);
   const [demLoading, setDemLoading] = useState(false);
   const [editingDemand, setEditingDemand] = useState(null);
@@ -1040,6 +1044,49 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
               {contactSaving?"保存中...":"保存联系方式"}
             </button>
             {contactMsg && <span style={{fontSize:12,color:contactMsg.startsWith("✓")?"#16a34a":"#dc2626"}}>{contactMsg}</span>}
+          </div>
+        </div>
+
+        {/* Change password */}
+        <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:14,padding:"20px 24px",marginBottom:24,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:1,marginBottom:14}}>修改密码</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+            {[["current","当前密码"],["next","新密码（≥8位）"],["confirm","确认新密码"]].map(([key,label])=>(
+              <div key={key} style={{marginBottom:12,gridColumn:key==="current"?"1/-1":"auto"}}>
+                <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>{label}</div>
+                <div style={{position:"relative"}}>
+                  <input
+                    type={pwShow[key]?"text":"password"}
+                    value={pwForm[key]}
+                    onChange={e=>setPwForm(f=>({...f,[key]:e.target.value}))}
+                    placeholder={key==="current"?"请输入当前密码":key==="next"?"至少 8 位":"再次输入新密码"}
+                    style={{...inp,fontSize:13,paddingRight:36}}
+                  />
+                  <button onClick={()=>setPwShow(s=>({...s,[key]:!s[key]}))} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:14,padding:0,lineHeight:1}}>
+                    {pwShow[key]?"🙈":"👁"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={async()=>{
+              setPwMsg("");
+              if (!pwForm.current||!pwForm.next||!pwForm.confirm){setPwMsg("请填写所有字段");return;}
+              if (pwForm.next.length<8){setPwMsg("新密码至少 8 位");return;}
+              if (pwForm.next!==pwForm.confirm){setPwMsg("两次密码不一致");return;}
+              setPwSaving(true);
+              try{
+                const res=await fetch(`${API}/auth/password`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${vendor._token}`},body:JSON.stringify({current_password:pwForm.current,new_password:pwForm.next})});
+                const d=await res.json();
+                if(res.ok){setPwMsg("✓ 密码修改成功");setPwForm({current:"",next:"",confirm:""});}
+                else{setPwMsg(d.detail||"修改失败");}
+              }catch{setPwMsg("网络错误");}
+              finally{setPwSaving(false);setTimeout(()=>setPwMsg(""),4000);}
+            }} disabled={pwSaving} style={{fontSize:13,padding:"7px 20px",borderRadius:8,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer",opacity:pwSaving?0.6:1}}>
+              {pwSaving?"保存中...":"修改密码"}
+            </button>
+            {pwMsg && <span style={{fontSize:12,color:pwMsg.startsWith("✓")?"#16a34a":"#dc2626"}}>{pwMsg}</span>}
           </div>
         </div>
 

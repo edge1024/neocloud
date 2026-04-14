@@ -1806,6 +1806,26 @@ async def delete_doc_comment(comment_id: str, user=Depends(current_user)):
         await conn.execute("DELETE FROM doc_comments WHERE id=$1", _uuid_mod.UUID(comment_id))
 
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+@app.patch("/auth/password")
+async def change_password(body: PasswordChange, user=Depends(current_user)):
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="新密码至少 8 位")
+    import uuid
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT password_hash FROM users WHERE id=$1", uuid.UUID(user["sub"]))
+        if not row:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        if not verify_pw(body.current_password, row["password_hash"]):
+            raise HTTPException(status_code=400, detail="当前密码错误")
+        await conn.execute("UPDATE users SET password_hash=$1 WHERE id=$2", hash_pw(body.new_password), uuid.UUID(user["sub"]))
+    return {"ok": True}
+
+
 @app.get("/auth/me")
 async def me(user=Depends(current_user)):
     pool = await get_pool()
