@@ -674,6 +674,7 @@ class MemoryListingCreate(BaseModel):
     location: str
     contact_name: str
     contact_info: str
+    price_valid_until: Optional[str] = None
 
 @app.get("/api/memory-listings")
 async def list_memory_listings():
@@ -706,15 +707,15 @@ async def create_memory_listing(body: MemoryListingCreate, user=Depends(current_
                 frequency, condition, warranty, description,
                 price_per_stick, tax_included, invoice_one_to_one,
                 payment_method, shipping_method, location,
-                contact_name, contact_info, user_id)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                contact_name, contact_info, price_valid_until, user_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
                RETURNING *""",
             body.title, body.listing_type, body.brand, body.generation,
             body.capacity_per_stick, body.quantity, body.frequency, body.condition,
             body.warranty, body.description,
             body.price_per_stick, body.tax_included, body.invoice_one_to_one,
             body.payment_method, body.shipping_method, body.location,
-            body.contact_name, body.contact_info, user["sub"]
+            body.contact_name, body.contact_info, body.price_valid_until, user["sub"]
         )
     return dict(row)
 
@@ -751,6 +752,7 @@ class MemoryListingPatch(BaseModel):
     contact_name: Optional[str] = None
     contact_info: Optional[str] = None
     is_visible: Optional[bool] = None
+    price_valid_until: Optional[str] = None
 
 @app.patch("/api/vendor/memory-listings/{listing_id}")
 async def vendor_patch_memory(listing_id: str, body: MemoryListingPatch, user=Depends(current_user)):
@@ -768,7 +770,7 @@ async def vendor_patch_memory(listing_id: str, body: MemoryListingPatch, user=De
             ("invoice_one_to_one","invoice_one_to_one"),("payment_method","payment_method"),
             ("shipping_method","shipping_method"),("location","location"),
             ("contact_name","contact_name"),("contact_info","contact_info"),
-            ("is_visible","is_visible"),
+            ("is_visible","is_visible"),("price_valid_until","price_valid_until"),
         ]
         updates, params, i = [], [], 1
         for field, col in fields:

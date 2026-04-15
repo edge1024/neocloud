@@ -2291,7 +2291,7 @@ function MemoryPublishModal({ onClose, onSuccess }) {
     condition:"全新", warranty:"1年", description:"",
     price_per_stick:"", tax_included:"含税", invoice_one_to_one:true,
     payment_method:"款齐发货", shipping_method:"快递（买家承担运费）",
-    location:"", contact_name:"", contact_info:""
+    location:"", contact_name:"", contact_info:"", price_valid_until:""
   });
   const [saving, setSaving] = useState(false);
   const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
@@ -2347,6 +2347,7 @@ function MemoryPublishModal({ onClose, onSuccess }) {
       <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9",marginTop:4}}>交易信息</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <div><label style={lbl}>单价（元/条）</label><input type="number" min="0" value={form.price_per_stick} onChange={set("price_per_stick")} placeholder="单价" style={inp} /></div>
+        <div><label style={lbl}>价格有效期</label><input value={form.price_valid_until} onChange={set("price_valid_until")} placeholder="如：2025年12月31日 或 长期有效" style={inp} /></div>
         <div><label style={lbl}>含税</label>{sel("tax_included",["含税","不含税"])}</div>
         <div>
           <label style={lbl}>发票一对一</label>
@@ -2389,7 +2390,8 @@ function MemoryEditModal({ item, token, onClose, onSuccess }) {
     tax_included: item.tax_included||"含税", invoice_one_to_one: item.invoice_one_to_one!==false,
     payment_method: item.payment_method||"款齐发货",
     shipping_method: item.shipping_method||"快递（买家承担运费）",
-    location: item.location||"", contact_name: item.contact_name||"", contact_info: item.contact_info||""
+    location: item.location||"", contact_name: item.contact_name||"", contact_info: item.contact_info||"",
+    price_valid_until: item.price_valid_until||""
   });
   const [saving, setSaving] = useState(false);
   const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
@@ -2437,6 +2439,7 @@ function MemoryEditModal({ item, token, onClose, onSuccess }) {
       <div style={{fontSize:13,fontWeight:700,color:"#0f172a",marginBottom:12,paddingBottom:8,borderBottom:"1px solid #f1f5f9",marginTop:4}}>交易信息</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <div><label style={lbl}>单价（元/条）</label><input type="number" min="0" value={form.price_per_stick} onChange={set("price_per_stick")} style={inp} /></div>
+        <div><label style={lbl}>价格有效期</label><input value={form.price_valid_until} onChange={set("price_valid_until")} placeholder="如：2025年12月31日 或 长期有效" style={inp} /></div>
         <div><label style={lbl}>含税</label>{sel("tax_included",["含税","不含税"])}</div>
         <div>
           <label style={lbl}>发票一对一</label>
@@ -2598,11 +2601,13 @@ function MemoryDetailInner({ item, authVendor, onShowAuth, qrUrl, qrLabel }) {
     ["成色", item.condition],
     ["质保", item.warranty||"—"],
     ["单价", item.price_per_stick?`¥${item.price_per_stick}/条`:"面议"],
+    ["价格有效期", item.price_valid_until||"—"],
     ["含税", item.tax_included||"—"],
     ["发票一对一", item.invoice_one_to_one?"是":"否"],
     ["交易方式", item.payment_method||"—"],
     ["发货方式", item.shipping_method||"—"],
     ["所在地", item.location],
+    ["发布日期", item.created_at ? new Date(item.created_at).toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}) : "—"],
   ];
   return (
     <div>
