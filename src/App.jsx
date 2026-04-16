@@ -847,7 +847,17 @@ function ResourceCard({ r, token, onUpdate, onDelete }) {
           </div>
           <div>
             <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>对外可见</div>
-            <button onClick={()=>setIsVisible(v=>!v)} style={{width:44,height:24,borderRadius:12,border:"none",background:isVisible?"#2563eb":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
+            <button onClick={async()=>{
+              const next = !isVisible;
+              setIsVisible(next);
+              const res = await fetch(`${API}/api/resources/${r.id}`,{
+                method:"PATCH",
+                headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+                body:JSON.stringify({is_visible:next}),
+              });
+              if(!res.ok) setIsVisible(!next);
+              else onUpdate(r.id,{...localR,isVisible:next});
+            }} style={{width:44,height:24,borderRadius:12,border:"none",background:isVisible?"#2563eb":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
               <span style={{position:"absolute",top:2,left:isVisible?22:2,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}} />
             </button>
           </div>
