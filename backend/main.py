@@ -197,6 +197,8 @@ async def list_resources(
             COALESCE(r.billing_unit, '')                                         AS "billingUnit",
             COALESCE(r.contact_name, '')                                         AS "resContactName",
             COALESCE(r.dc_location, '')                                          AS "dcLocation",
+            COALESCE(r.contract_type, '')                                        AS "contractType",
+            COALESCE(r.payment_type, '')                                         AS "paymentType",
             COALESCE(r.config_req, '')                                           AS "configReq",
             COALESCE(r.storage_req, '')                                          AS "storageReq",
             COALESCE(r.bandwidth_req, '')                                        AS "bandwidthReq",
@@ -304,6 +306,8 @@ class ResourceCreate(BaseModel):
     count_unit: str = "卡"
     currency: str = "人民币"
     dc_location: str = ""
+    contract_type: str = ""
+    payment_type: str = ""
     storage_req: str = ""
     bandwidth_req: str = ""
     public_ip_req: str = ""
@@ -321,9 +325,10 @@ async def create_resource(body: ResourceCreate):
                  memory_size, memory_bandwidth, region,
                  delivery_type, description, is_available,
                  billing_unit, contact_name, count_unit, currency,
-                 dc_location, storage_req, bandwidth_req, public_ip_req,
+                 dc_location, contract_type, payment_type,
+                 storage_req, bandwidth_req, public_ip_req,
                  need_extra_cpu, extra_cpu_config)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING id
         """
         resource_id = await conn.fetchval(
@@ -332,7 +337,8 @@ async def create_resource(body: ResourceCreate):
             body.delivery, body.desc, body.available,
             body.billing_unit or None, body.contact_name or None,
             body.count_unit, body.currency,
-            body.dc_location, body.storage_req, body.bandwidth_req, body.public_ip_req,
+            body.dc_location, body.contract_type or None, body.payment_type or None,
+            body.storage_req, body.bandwidth_req, body.public_ip_req,
             body.need_extra_cpu, body.extra_cpu_config
         )
         # insert tags
@@ -820,6 +826,80 @@ async def admin_delete_memory(listing_id: str, user=Depends(admin_required)):
         await conn.execute("DELETE FROM memory_listings WHERE id = $1", listing_id)
 
 
+# ─── Server Listings ───────────────────────────────────────────────────────────
+class ServerListingCreate(BaseModel):
+    listing_type: str
+    gpu_model: str
+    brand: Optional[str] = None
+    stock_type: str
+    quantity: int
+    min_batch_quantity: Optional[int] = None
+    condition: str
+    delivery_date: Optional[str] = None
+    config_requirements: Optional[str] = None
+    budget_per_unit: Optional[str] = None
+    tax_included: bool = True
+    payment_method: Optional[str] = None
+    other_requirements: Optional[str] = None
+    contact_name: str
+    contact_info: str
+
+@app.get("/api/server-listings")
+async def list_server_listings():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM server_listings WHERE is_visible = true ORDER BY created_at DESC"
+        )
+    return [dict(r) for r in rows]
+
+@app.post("/api/server-listings", status_code=201)
+async def create_server_listing(body: ServerListingCreate, user=Depends(current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO server_listings
+               (listing_type, gpu_model, brand, stock_type, quantity, min_batch_quantity,
+                condition, delivery_date, config_requirements, budget_per_unit,
+                tax_included, payment_method, other_requirements,
+                contact_name, contact_info, user_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+               RETURNING *""",
+            body.listing_type, body.gpu_model, body.brand, body.stock_type,
+            body.quantity, body.min_batch_quantity, body.condition, body.delivery_date,
+            body.config_requirements, body.budget_per_unit, body.tax_included,
+            body.payment_method, body.other_requirements,
+            body.contact_name, body.contact_info, user["sub"]
+        )
+    return dict(row)
+
+# ─── Admin: Server Listings ────────────────────────────────────────────────────
+@app.get("/api/admin/server-listings")
+async def admin_list_server(user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM server_listings ORDER BY created_at DESC")
+    return [dict(r) for r in rows]
+
+@app.patch("/api/admin/server-listings/{listing_id}/visibility")
+async def admin_toggle_server_visibility(listing_id: str, user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE server_listings SET is_visible = NOT is_visible WHERE id = $1 RETURNING id, is_visible",
+            listing_id
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="未找到")
+    return dict(row)
+
+@app.delete("/api/admin/server-listings/{listing_id}", status_code=204)
+async def admin_delete_server(listing_id: str, user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM server_listings WHERE id = $1", listing_id)
+
+
 VENDOR_SELECT = """
     SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
            rating::float, review_count AS reviews, location,
@@ -901,6 +981,8 @@ class ResourcePatch(BaseModel):
     billing_unit: Optional[str] = None
     contact_name: Optional[str] = None
     dc_location: Optional[str] = None
+    contract_type: Optional[str] = None
+    payment_type: Optional[str] = None
     config_req: Optional[str] = None
     storage_req: Optional[str] = None
     bandwidth_req: Optional[str] = None
@@ -963,6 +1045,12 @@ async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(cur
         if body.dc_location is not None:
             params.append(body.dc_location)
             updates.append(f"dc_location=${len(params)}")
+        if body.contract_type is not None:
+            params.append(body.contract_type or None)
+            updates.append(f"contract_type=${len(params)}")
+        if body.payment_type is not None:
+            params.append(body.payment_type or None)
+            updates.append(f"payment_type=${len(params)}")
         if body.config_req is not None:
             params.append(body.config_req)
             updates.append(f"config_req=${len(params)}")
