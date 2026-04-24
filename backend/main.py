@@ -820,6 +820,79 @@ async def admin_delete_memory(listing_id: str, user=Depends(admin_required)):
         await conn.execute("DELETE FROM memory_listings WHERE id = $1", listing_id)
 
 
+# ─── Server Listings ───────────────────────────────────────────────────────────
+class ServerListingCreate(BaseModel):
+    listing_type: str
+    gpu_model: str
+    brand: Optional[str] = None
+    stock_type: str
+    quantity: int
+    min_batch_quantity: Optional[int] = None
+    condition: str
+    delivery_date: Optional[str] = None
+    config_requirements: Optional[str] = None
+    budget_per_unit: Optional[str] = None
+    tax_included: bool = True
+    payment_method: Optional[str] = None
+    other_requirements: Optional[str] = None
+    contact_name: str
+    contact_info: str
+
+@app.get("/api/server-listings")
+async def list_server_listings():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM server_listings WHERE is_visible = true ORDER BY created_at DESC"
+        )
+    return [dict(r) for r in rows]
+
+@app.post("/api/server-listings", status_code=201)
+async def create_server_listing(body: ServerListingCreate, user=Depends(current_user)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO server_listings
+               (listing_type, gpu_model, brand, stock_type, quantity, min_batch_quantity,
+                condition, delivery_date, config_requirements, budget_per_unit,
+                tax_included, payment_method, other_requirements,
+                contact_name, contact_info, user_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+               RETURNING *""",
+            body.listing_type, body.gpu_model, body.brand, body.stock_type,
+            body.quantity, body.min_batch_quantity, body.condition, body.delivery_date,
+            body.config_requirements, body.budget_per_unit, body.tax_included,
+            body.payment_method, body.other_requirements,
+            body.contact_name, body.contact_info, user["sub"]
+        )
+    return dict(row)
+
+@app.get("/api/admin/server-listings")
+async def admin_list_server(user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM server_listings ORDER BY created_at DESC")
+    return [dict(r) for r in rows]
+
+@app.patch("/api/admin/server-listings/{listing_id}/visibility")
+async def admin_toggle_server_visibility(listing_id: str, user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE server_listings SET is_visible = NOT is_visible WHERE id = $1 RETURNING id, is_visible",
+            listing_id
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="未找到")
+    return dict(row)
+
+@app.delete("/api/admin/server-listings/{listing_id}", status_code=204)
+async def admin_delete_server(listing_id: str, user=Depends(admin_required)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM server_listings WHERE id = $1", listing_id)
+
+
 VENDOR_SELECT = """
     SELECT id, company_name AS name, LEFT(company_name,2) AS avatar,
            rating::float, review_count AS reviews, location,

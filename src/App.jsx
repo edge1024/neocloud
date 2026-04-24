@@ -2293,6 +2293,238 @@ function SubscribeModal({ onClose, onSuccess }) {
   );
 }
 
+// ─── Server Page ──────────────────────────────────────────────────────────────
+function ServerPage({ authVendor, onShowAuth, onPublish }) {
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPublish, setShowPublish] = useState(false);
+
+  useEffect(()=>{
+    fetch(`${API}/api/server-listings`).then(r=>r.json()).then(setListings).catch(()=>{}).finally(()=>setLoading(false));
+  },[]);
+
+  const handlePublish = (item) => {
+    setListings(ls=>[item,...ls]);
+    setShowPublish(false);
+    if (onPublish) onPublish(item);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return `${d.getMonth()+1}/${d.getDate()}`;
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div>
+          <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:22,fontWeight:700,color:"#0f172a"}}>服务器买卖</div>
+          <div style={{fontSize:12,color:"#94a3b8",marginTop:4}}>硬件 · GPU 服务器买卖</div>
+        </div>
+        <button onClick={()=>{ if(authVendor) setShowPublish(true); else onShowAuth("login"); }}
+          style={{...primaryBtn,padding:"10px 24px"}}>
+          + 发布需求
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8"}}>加载中...</div>
+      ) : listings.length===0 ? (
+        <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8",fontSize:14}}>暂无记录，成为第一个发布者吧</div>
+      ) : (
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          {listings.map((item,idx)=>(
+            <div key={item.id} style={{display:"flex",alignItems:"center",gap:16,padding:"16px 20px",borderBottom:idx<listings.length-1?"1px solid #f1f5f9":"none"}}>
+              <span style={{padding:"4px 10px",borderRadius:6,fontSize:11,fontWeight:600,background:item.listing_type==="buy"?"rgba(37,99,235,0.08)":"rgba(16,185,129,0.08)",color:item.listing_type==="buy"?"#2563eb":"#10b981",flexShrink:0}}>
+                {item.listing_type==="buy"?"购买":"销售"}
+              </span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:"#0f172a",marginBottom:2}}>{item.gpu_model}</div>
+                <div style={{fontSize:12,color:"#64748b"}}>{item.quantity} 台{item.brand&&item.brand!=="无要求"?` · ${item.brand}`:""}</div>
+              </div>
+              <span style={{padding:"3px 8px",borderRadius:6,fontSize:11,fontWeight:600,background:item.condition==="new"?"rgba(234,179,8,0.08)":"rgba(100,116,139,0.08)",color:item.condition==="new"?"#ca8a04":"#64748b",flexShrink:0}}>
+                {item.condition==="new"?"全新":item.condition==="used"?"二手":"均可"}
+              </span>
+              <div style={{fontSize:12,color:"#94a3b8",minWidth:60,flexShrink:0}}>{formatDate(item.created_at)}</div>
+              <div style={{fontSize:12,color:"#374151",minWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flexShrink:0}}>{item.contact_info}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showPublish && <ServerPublishModal onClose={()=>setShowPublish(false)} onSuccess={handlePublish} />}
+    </div>
+  );
+}
+
+// ─── Server Publish Modal ─────────────────────────────────────────────────────
+function ServerPublishModal({ onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    listing_type:"buy",gpu_model:"H100",brand:"无要求",stock_type:"spot",
+    quantity:"",min_batch_quantity:"",condition:"new",delivery_date:"",
+    config_requirements:"",budget_per_unit:"",tax_included:true,
+    payment_method:"意向金看货",other_requirements:"",
+    contact_name:"",contact_info:""
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const setCheck = k => e => setForm(f=>({...f,[k]:e.target.checked}));
+
+  const valid = form.quantity && form.contact_name && form.contact_info;
+
+  const handle = async () => {
+    if (!valid || saving) return;
+    setSaving(true); setErr("");
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) { setErr("请先登录"); setSaving(false); return; }
+      const res = await fetch(`${API}/api/server-listings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          ...form,
+          quantity: Number(form.quantity),
+          min_batch_quantity: form.min_batch_quantity ? Number(form.min_batch_quantity) : null
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const saved = await res.json();
+      onSuccess(saved);
+    } catch(e) {
+      setErr("发布失败：" + e.message);
+      setSaving(false);
+    }
+  };
+
+  const sl = { fontSize:11, fontWeight:700, color:"#2563eb", letterSpacing:1, marginBottom:12, marginTop:20, paddingBottom:8, borderBottom:"1px solid #e2e8f0" };
+  const lbl = { display:"block", fontSize:12, color:"#64748b", marginBottom:5 };
+  const row2 = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" };
+
+  return (
+    <Modal onClose={onClose} width={680}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+        <div>
+          <div style={{fontFamily:"'Noto Serif SC',serif",fontSize:20,fontWeight:700,color:"#0f172a"}}>发布服务器需求</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:4}}>* 为必填项</div>
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",fontSize:20,cursor:"pointer"}}>✕</button>
+      </div>
+
+      {err && <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#dc2626"}}>{err}</div>}
+
+      <div style={sl}>基本信息</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>需求类型 *</label>
+          <select value={form.listing_type} onChange={set("listing_type")} style={inp}>
+            <option value="buy">购买</option>
+            <option value="sell">销售</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>GPU 型号 *</label>
+          <select value={form.gpu_model} onChange={set("gpu_model")} style={inp}>
+            {["H200","H20","H100","B300","A800","A100","RTX 5090","RTX 4090","其他"].map(m=><option key={m}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={row2}>
+        <div>
+          <label style={lbl}>品牌要求</label>
+          <select value={form.brand} onChange={set("brand")} style={inp}>
+            {["无要求","Supermicro","Dell","HPE","浪潮","曙光","其他"].map(b=><option key={b}>{b}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>货物形态 *</label>
+          <select value={form.stock_type} onChange={set("stock_type")} style={inp}>
+            <option value="spot">现货</option>
+            <option value="future">期货</option>
+            <option value="both">均可</option>
+          </select>
+        </div>
+      </div>
+
+      <div style={row2}>
+        <div>
+          <label style={lbl}>数量（台）*</label>
+          <input type="number" min="1" value={form.quantity} onChange={set("quantity")} placeholder="例：10" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>最小分批交付数量（台）</label>
+          <input type="number" min="1" value={form.min_batch_quantity} onChange={set("min_batch_quantity")} placeholder="选填" style={inp} />
+        </div>
+      </div>
+
+      <div style={row2}>
+        <div>
+          <label style={lbl}>新旧 *</label>
+          <select value={form.condition} onChange={set("condition")} style={inp}>
+            <option value="new">全新</option>
+            <option value="used">二手</option>
+            <option value="both">均可</option>
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>期望交付时间</label>
+          <input type="date" value={form.delivery_date} onChange={set("delivery_date")} style={inp} />
+        </div>
+      </div>
+
+      <div>
+        <label style={lbl}>配置要求</label>
+        <textarea value={form.config_requirements} onChange={set("config_requirements")} placeholder="描述 CPU、内存、存储等配置要求" rows={2} style={{...inp,resize:"vertical"}} />
+      </div>
+
+      <div style={sl}>商务信息</div>
+      <div>
+        <label style={lbl}>参考预算（元/台）</label>
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <input value={form.budget_per_unit} onChange={set("budget_per_unit")} placeholder="选填" style={{...inp,flex:1}} />
+          <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#64748b",cursor:"pointer"}}>
+            <input type="checkbox" checked={form.tax_included} onChange={setCheck("tax_included")} />
+            含税13%
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label style={lbl}>付款方式</label>
+        <select value={form.payment_method} onChange={set("payment_method")} style={inp}>
+          {["意向金看货","部分预付","验货后付款","可议"].map(p=><option key={p}>{p}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label style={lbl}>其他商务要求</label>
+        <textarea value={form.other_requirements} onChange={set("other_requirements")} placeholder="其他补充说明" rows={2} style={{...inp,resize:"vertical"}} />
+      </div>
+
+      <div style={sl}>联系信息</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>姓名 *</label>
+          <input value={form.contact_name} onChange={set("contact_name")} placeholder="您的姓名" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>联系方式 *</label>
+          <input value={form.contact_info} onChange={set("contact_info")} placeholder="手机 / 微信 / 邮箱" style={inp} />
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <button onClick={onClose} style={{...ghostBtn,flex:1}}>取消</button>
+        <button onClick={handle} disabled={!valid||saving} style={{...primaryBtn,flex:2,opacity:valid?1:0.4,cursor:valid?"pointer":"default"}}>
+          {saving?"发布中...":"发布"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Memory Publish Modal ─────────────────────────────────────────────────────
 function MemoryPublishModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({
@@ -4347,6 +4579,7 @@ export default function App() {
   const [expandedDemandId, setExpandedDemandId] = useState(null);
   const [expandVendorId, setExpandVendorId] = useState(null);
   const [memoryListings, setMemoryListings] = useState([]);
+  const [serverListings, setServerListings] = useState([]);
 
   // 会话恢复
   useEffect(()=>{
@@ -4466,7 +4699,7 @@ export default function App() {
               ))}
             </div>
           </div>
-          {[["hardware","硬件"],["docs","文档"]].map(([v,l])=>(
+          {[["hardware","硬件买卖"],["docs","文档"]].map(([v,l])=>(
             <button key={v} onClick={()=>setTabView(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tabView===v?"rgba(37,99,235,0.08)":"transparent",color:tabView===v?"#2563eb":"#64748b",cursor:"pointer",fontSize:13,fontWeight:600}}>
               {l}
             </button>
@@ -4522,6 +4755,33 @@ export default function App() {
 
         {/* Hardware */}
         {tabView==="hardware" && (
+          <div style={{maxWidth:800,margin:"0 auto",padding:"48px 24px"}}>
+            <h2 style={{fontFamily:"'Noto Serif SC',serif",fontSize:28,fontWeight:700,color:"#0f172a",marginBottom:8}}>硬件买卖</h2>
+            <p style={{fontSize:14,color:"#64748b",marginBottom:40}}>选择您需要的硬件类型</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+              <div onClick={()=>setTabView("hardware:servers")} style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:"32px 24px",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.05)",transition:"all 0.2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="#2563eb";e.currentTarget.style.boxShadow="0 4px 12px rgba(37,99,235,0.15)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.05)";}}>
+                <div style={{fontSize:40,marginBottom:16}}>🖥️</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:8}}>服务器</div>
+                <div style={{fontSize:13,color:"#64748b"}}>GPU 服务器买卖信息</div>
+              </div>
+              <div onClick={()=>setTabView("hardware:memory")} style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:"32px 24px",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.05)",transition:"all 0.2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="#2563eb";e.currentTarget.style.boxShadow="0 4px 12px rgba(37,99,235,0.15)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2e8f0";e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.05)";}}>
+                <div style={{fontSize:40,marginBottom:16}}>💾</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#0f172a",marginBottom:8}}>内存条</div>
+                <div style={{fontSize:13,color:"#64748b"}}>内存条买卖出租信息</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tabView==="hardware:servers" && (
+          <ServerPage authVendor={authVendor} onShowAuth={setShowAuth} onPublish={s=>setServerListings(ls=>[s,...ls])} />
+        )}
+
+        {tabView==="hardware:memory" && (
           <MemoryPage authVendor={authVendor} onShowAuth={setShowAuth} onPublish={m=>setMemoryListings(ls=>[m,...ls])} />
         )}
 
