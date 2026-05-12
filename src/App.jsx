@@ -291,7 +291,7 @@ function PublishModal({ vendor, onClose, onPublish }) {
 
   const required = [form.brand, form.gpuModel, form.vram, form.delivery, form.count,
     form.billingUnit, form.price, form.currency, form.region, form.dcLocation,
-    form.contract, form.paymentTerms, form.status, form.config, form.contact];
+    form.status, form.config, form.contact];
   const valid = required.every(v=>String(v).trim()!=="") && Number(form.count)>0 && Number(form.price)>0;
 
   const handle = async () => {
@@ -1890,7 +1890,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, au
     region:"国内", dcLocation:"",
     contract:"", paymentTerms:"",
     status:"可售", onlineTime:"",
-    config:"", company:"", contactName:"", contact:"",
+    config:"", company: authVendor?.name || "", contactName:"", contact:"",
   };
   const [form, setForm] = useState(empty);
   const [uploading, setUploading] = useState(false);
@@ -1921,7 +1921,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, au
 
   const required = [form.brand,form.gpuModel,form.vram,form.delivery,form.count,
     form.billingUnit,form.price,form.currency,form.region,form.dcLocation,
-    form.contract,form.paymentTerms,form.status,form.config,form.contact,form.company];
+    form.status,form.config,form.contact,form.company];
   const valid = required.every(v=>String(v).trim()!=="") && Number(form.count)>0 && Number(form.price)>0;
 
   const handleFileUpload = async (file) => {
@@ -1988,6 +1988,8 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, au
           billing_unit: form.billingUnit,
           contact_name: form.contactName || null,
           count_unit: form.countUnit || "台",
+          currency: form.currency || "人民币",
+          dc_location: form.dcLocation || "",
         }),
       });
       if (!rRes.ok) throw new Error("资源发布失败：" + await rRes.text());
@@ -5058,10 +5060,16 @@ export default function App() {
       {contactModal&&<ContactModal vendor={contactModal} onClose={()=>setContactModal(null)} />}
       {showRegister&&<RegisterModal onClose={()=>setShowRegister(false)} onSuccess={handleRegister} />}
       {showAuth&&<AuthModal defaultTab={showAuth} onClose={()=>setShowAuth(null)} onSuccess={(vendor,token,role)=>{ localStorage.setItem("auth_token",token); if(role==="admin"){ setAuthAdmin(true); } else { setAuthVendor(vendor); if(pendingPost==="resource"){ setPendingPost(null); setShowPostRes(true); } else if(pendingPost==="demand"){ setPendingPost(null); setShowPostReq(true); } } setShowAuth(null); }} />}
-      {showPostReq&&<PostRequirementModal vendor={authVendor} onClose={()=>setShowPostReq(false)} onSuccess={d=>{
+      {showPostReq&&<PostRequirementModal vendor={authVendor} onClose={()=>setShowPostReq(false)} onSuccess={async d=>{
         setDemands(ds=>[d,...ds]);
         setTabView("demands");
-        fetch(`${API}/api/demands`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...d,vendor_id:authVendor?.id??null})}).catch(()=>{});
+        try {
+          const res = await fetch(`${API}/api/demands`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...d,vendor_id:authVendor?.id??null})});
+          if (res.ok) {
+            const saved = await res.json();
+            setDemands(ds=>ds.map(x=>x.id===d.id?{...x,...saved}:x));
+          }
+        } catch(e) {}
       }} subscriberCount={demSubscriberCount} />}
       {showPostRes&&<PostResourceFromDemandModal onClose={()=>setShowPostRes(false)} authVendor={authVendor} onSuccess={(v,r)=>{
         handlePublishFromDemand(v,r);
