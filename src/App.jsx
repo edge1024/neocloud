@@ -1921,7 +1921,7 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, au
 
   const required = [form.brand,form.gpuModel,form.vram,form.delivery,form.count,
     form.billingUnit,form.price,form.currency,form.region,form.dcLocation,
-    form.status,form.config,form.contact,form.company];
+    form.status,form.config,form.contact];
   const valid = required.every(v=>String(v).trim()!=="") && Number(form.count)>0 && Number(form.price)>0;
 
   const handleFileUpload = async (file) => {
@@ -2130,14 +2130,6 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, au
         <div><label style={lbl}>联系方式 *</label><input value={form.contact} onChange={set("contact")} placeholder="手机 / 微信 / 邮箱" style={inp} /></div>
 
         {submitErr && <div style={{fontSize:12,color:"#dc2626",marginBottom:8}}>{submitErr}</div>}
-        {!valid && <div style={{fontSize:11,color:"#dc2626",marginBottom:6}}>
-          未填写：{[
-            !form.brand&&"GPU品牌",!form.gpuModel&&"GPU型号",!form.vram&&"显存",
-            !(Number(form.count)>0)&&"可租数量",!(Number(form.price)>0)&&"单价",
-            !form.dcLocation&&"机房位置",!form.config&&"配置说明",
-            !form.contact&&"联系方式",!form.company&&"公司名称",
-          ].filter(Boolean).join("、")}
-        </div>}
         <div style={{display:"flex",gap:10,marginTop:8}}>
           <button onClick={onClose} style={{...ghostBtn,flex:1}}>取消</button>
           <button onClick={handle} disabled={!valid||submitting} style={{...primaryBtn,flex:2,opacity:(valid&&!submitting)?1:0.4,cursor:(valid&&!submitting)?"pointer":"default"}}>{submitting?"发布中...":"发布资源"}</button>
