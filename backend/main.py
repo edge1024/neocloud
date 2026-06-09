@@ -19,7 +19,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── Auth Config ──────────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY == "change-this-secret-in-production" or len(SECRET_KEY) < 32:
+    raise RuntimeError("SECRET_KEY must be set to a strong secret value")
 ALGORITHM  = "HS256"
 TOKEN_DAYS = 30
 
@@ -156,7 +158,7 @@ async def list_resources(
 ):
     pool = await get_pool()
 
-    conditions = ["1=1"]
+    conditions = ["COALESCE(r.is_visible, TRUE) = TRUE"]
     params: list = []
 
     if search:
@@ -194,6 +196,8 @@ async def list_resources(
             r.delivery_type                                                      AS delivery,
             r.description                                                        AS desc,
             r.region,
+            COALESCE(r.contract_type, '')                                        AS "contractType",
+            COALESCE(r.payment_type, '')                                         AS "paymentType",
             COALESCE(r.billing_unit, '')                                         AS "billingUnit",
             COALESCE(r.contact_name, '')                                         AS "resContactName",
             COALESCE(r.dc_location, '')                                          AS "dcLocation",
@@ -231,6 +235,67 @@ async def list_resources(
     return [row_to_dict(r) for r in rows]
 
 
+@app.get("/api/vendor/resources")
+async def list_vendor_resources(user=Depends(current_user)):
+    vendor_id = user.get("vendor_id")
+    if not vendor_id:
+        raise HTTPException(status_code=403, detail="需要供应商权限")
+
+    pool = await get_pool()
+    sql = """
+        SELECT
+            r.id,
+            r.vendor_id                                                          AS "vendorId",
+            r.gpu_model                                                          AS gpu,
+            r.gpu_count                                                          AS count,
+            r.price_per_hour::float                                              AS price,
+            r.memory_size                                                        AS mem,
+            r.memory_bandwidth                                                   AS bandwidth,
+            r.is_available                                                       AS available,
+            COALESCE(r.resource_status, '在线')                                  AS status,
+            r.is_visible                                                         AS "isVisible",
+            r.available_quantity                                                 AS "availableQuantity",
+            r.delivery_type                                                      AS delivery,
+            r.description                                                        AS desc,
+            r.region,
+            COALESCE(r.contract_type, '')                                        AS "contractType",
+            COALESCE(r.payment_type, '')                                         AS "paymentType",
+            COALESCE(r.billing_unit, '')                                         AS "billingUnit",
+            COALESCE(r.contact_name, '')                                         AS "resContactName",
+            COALESCE(r.dc_location, '')                                          AS "dcLocation",
+            COALESCE(r.config_req, '')                                           AS "configReq",
+            COALESCE(r.storage_req, '')                                          AS "storageReq",
+            COALESCE(r.bandwidth_req, '')                                        AS "bandwidthReq",
+            COALESCE(r.public_ip_req, '')                                        AS "publicIpReq",
+            COALESCE(r.need_extra_cpu, FALSE)                                    AS "needExtraCpu",
+            COALESCE(r.extra_cpu_config, '')                                     AS "extraCpuConfig",
+            COALESCE(r.count_unit, '卡')                                         AS "countUnit",
+            COALESCE(r.currency, '人民币')                                       AS "currency",
+            TO_CHAR(r.created_at, 'YYYY-MM-DD')                                  AS "createdAt",
+            COALESCE(v.company_name,'')                                          AS "vendorName",
+            COALESCE(v.contact_name,'')                                          AS "contactName",
+            COALESCE(v.contact_phone,'')                                         AS "contactPhone",
+            COALESCE(v.wechat,'')                                                AS "contactWechat",
+            COALESCE(v.email,'')                                                 AS "contactEmail",
+            COALESCE(v.location,'')                                              AS "vendorLocation",
+            COALESCE(v.slug, v.id::text)                                         AS "shareToken",
+            COALESCE(
+                array_agg(t.name ORDER BY t.id) FILTER (WHERE t.name IS NOT NULL),
+                ARRAY[]::text[]
+            )                                                                    AS tags
+        FROM gpu_resources r
+        LEFT JOIN vendors  v   ON v.id   = r.vendor_id
+        LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
+        LEFT JOIN tags     t   ON t.id   = rtm.tag_id
+        WHERE r.vendor_id = $1
+        GROUP BY r.id, v.id, v.company_name, v.contact_name, v.contact_phone, v.wechat, v.email, v.location, v.slug
+        ORDER BY r.id
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, vendor_id)
+    return [row_to_dict(r) for r in rows]
+
+
 @app.get("/api/resources/{resource_id}")
 async def get_resource(resource_id: int):
     pool = await get_pool()
@@ -250,6 +315,8 @@ async def get_resource(resource_id: int):
             r.delivery_type                                                      AS delivery,
             r.description                                                        AS desc,
             r.region,
+            COALESCE(r.contract_type, '')                                        AS "contractType",
+            COALESCE(r.payment_type, '')                                         AS "paymentType",
             COALESCE(r.billing_unit, '')                                         AS "billingUnit",
             COALESCE(r.contact_name, '')                                         AS "resContactName",
             COALESCE(r.dc_location, '')                                          AS "dcLocation",
@@ -288,7 +355,6 @@ async def get_resource(resource_id: int):
 
 
 class ResourceCreate(BaseModel):
-    vendorId: int
     gpu: str
     count: int
     price: float
@@ -297,8 +363,12 @@ class ResourceCreate(BaseModel):
     region: str = "国内"
     delivery: str = "裸金属"
     desc: str = ""
+    status: str = "在线"
     tags: List[str] = []
     available: bool = True
+    config_req: str = ""
+    contract_type: str = ""
+    payment_type: str = ""
     billing_unit: str = ""
     contact_name: Optional[str] = None
     count_unit: str = "卡"
@@ -311,29 +381,39 @@ class ResourceCreate(BaseModel):
     extra_cpu_config: str = ""
 
 @app.post("/api/resources", status_code=201)
-async def create_resource(body: ResourceCreate):
+async def create_resource(body: ResourceCreate, user=Depends(current_user)):
+    vendor_id = user.get("vendor_id")
+    if not vendor_id:
+        raise HTTPException(status_code=403, detail="需要供应商权限")
+
     pool = await get_pool()
     async with pool.acquire() as conn:
+        vendor_exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM vendors WHERE id=$1 AND status='active')",
+            vendor_id
+        )
+        if not vendor_exists:
+            raise HTTPException(status_code=403, detail="供应商不存在或已停用")
         # insert resource
         sql = """
             INSERT INTO gpu_resources
                 (vendor_id, gpu_model, gpu_count, price_per_hour,
                  memory_size, memory_bandwidth, region,
-                 delivery_type, description, is_available,
+                 delivery_type, description, resource_status, is_available,
                  billing_unit, contact_name, count_unit, currency,
-                 dc_location, storage_req, bandwidth_req, public_ip_req,
-                 need_extra_cpu, extra_cpu_config)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                 dc_location, config_req, storage_req, bandwidth_req, public_ip_req,
+                 need_extra_cpu, extra_cpu_config, contract_type, payment_type)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
             RETURNING id
         """
         resource_id = await conn.fetchval(
-            sql, body.vendorId, body.gpu, body.count, body.price,
+            sql, vendor_id, body.gpu, body.count, body.price,
             body.mem, body.bandwidth, body.region,
-            body.delivery, body.desc, body.available,
+            body.delivery, body.desc or None, body.status, body.available,
             body.billing_unit or None, body.contact_name or None,
             body.count_unit, body.currency,
-            body.dc_location, body.storage_req, body.bandwidth_req, body.public_ip_req,
-            body.need_extra_cpu, body.extra_cpu_config
+            body.dc_location, body.config_req, body.storage_req, body.bandwidth_req, body.public_ip_req,
+            body.need_extra_cpu, body.extra_cpu_config, body.contract_type or None, body.payment_type or None
         )
         # insert tags
         for tag_name in body.tags:
@@ -354,6 +434,23 @@ async def create_resource(body: ResourceCreate):
                    r.memory_size AS mem, r.memory_bandwidth AS bandwidth,
                    r.is_available AS available, r.delivery_type AS delivery,
                    r.description AS desc, r.region,
+                   COALESCE(r.resource_status, '在线') AS status,
+                   r.is_visible AS "isVisible",
+                   r.available_quantity AS "availableQuantity",
+                   COALESCE(r.contract_type, '') AS "contractType",
+                   COALESCE(r.payment_type, '') AS "paymentType",
+                   COALESCE(r.billing_unit, '') AS "billingUnit",
+                   COALESCE(r.contact_name, '') AS "resContactName",
+                   COALESCE(r.dc_location, '') AS "dcLocation",
+                   COALESCE(r.config_req, '') AS "configReq",
+                   COALESCE(r.storage_req, '') AS "storageReq",
+                   COALESCE(r.bandwidth_req, '') AS "bandwidthReq",
+                   COALESCE(r.public_ip_req, '') AS "publicIpReq",
+                   COALESCE(r.need_extra_cpu, FALSE) AS "needExtraCpu",
+                   COALESCE(r.extra_cpu_config, '') AS "extraCpuConfig",
+                   COALESCE(r.count_unit, '卡') AS "countUnit",
+                   COALESCE(r.currency, '人民币') AS "currency",
+                   TO_CHAR(r.created_at, 'YYYY-MM-DD') AS "createdAt",
                    COALESCE(array_agg(t.name ORDER BY t.id) FILTER (WHERE t.name IS NOT NULL), ARRAY[]::text[]) AS tags
             FROM gpu_resources r
             LEFT JOIN resource_tag_map rtm ON rtm.resource_id = r.id
@@ -491,7 +588,11 @@ class DemandCreate(BaseModel):
     vendor_id: Optional[int] = None
 
 @app.post("/api/demands", status_code=201)
-async def create_demand(body: DemandCreate):
+async def create_demand(body: DemandCreate, user=Depends(current_user)):
+    vendor_id = user.get("vendor_id")
+    if not vendor_id:
+        raise HTTPException(status_code=403, detail="需要供应商权限")
+
     pool = await get_pool()
     contact_val = body.contact or body.contact_name
     sql = """
@@ -551,7 +652,7 @@ async def create_demand(body: DemandCreate):
             body.config_req, body.storage_req, body.bandwidth_req, body.public_ip_req,
             body.need_extra_cpu, body.extra_cpu_config,
             body.contact_name, body.contact_phone, body.company, body.contact_email, body.notes,
-            body.budget, body.tags, body.region, body.notes, contact_val, body.vendor_id,
+            body.budget, body.tags, body.region, body.notes, contact_val, vendor_id,
             body.delivery_time or None, body.budget_text or None
         )
     asyncio.create_task(notify_demand(row_to_dict(row)))
@@ -971,6 +1072,8 @@ class ResourcePatch(BaseModel):
     region: Optional[str] = None
     delivery: Optional[str] = None
     desc: Optional[str] = None
+    contract_type: Optional[str] = None
+    payment_type: Optional[str] = None
     billing_unit: Optional[str] = None
     contact_name: Optional[str] = None
     dc_location: Optional[str] = None
@@ -1027,6 +1130,12 @@ async def patch_resource(resource_id: int, body: ResourcePatch, user=Depends(cur
         if body.desc is not None:
             params.append(body.desc or None)
             updates.append(f"description=${len(params)}")
+        if body.contract_type is not None:
+            params.append(body.contract_type or None)
+            updates.append(f"contract_type=${len(params)}")
+        if body.payment_type is not None:
+            params.append(body.payment_type or None)
+            updates.append(f"payment_type=${len(params)}")
         if body.billing_unit is not None:
             params.append(body.billing_unit or None)
             updates.append(f"billing_unit=${len(params)}")
@@ -1157,6 +1266,19 @@ async def get_share_page(share_token: str):
                    r.is_visible AS "isVisible",
                    r.available_quantity AS "availableQuantity",
                    r.delivery_type AS delivery, r.description AS desc, r.region,
+                   COALESCE(r.contract_type, '') AS "contractType",
+                   COALESCE(r.payment_type, '') AS "paymentType",
+                   COALESCE(r.billing_unit, '') AS "billingUnit",
+                   COALESCE(r.contact_name, '') AS "resContactName",
+                   COALESCE(r.dc_location, '') AS "dcLocation",
+                   COALESCE(r.config_req, '') AS "configReq",
+                   COALESCE(r.storage_req, '') AS "storageReq",
+                   COALESCE(r.bandwidth_req, '') AS "bandwidthReq",
+                   COALESCE(r.public_ip_req, '') AS "publicIpReq",
+                   COALESCE(r.need_extra_cpu, FALSE) AS "needExtraCpu",
+                   COALESCE(r.extra_cpu_config, '') AS "extraCpuConfig",
+                   COALESCE(r.count_unit, '卡') AS "countUnit",
+                   COALESCE(r.currency, '人民币') AS "currency",
                    COALESCE(
                        array_agg(t.name ORDER BY t.id) FILTER (WHERE t.name IS NOT NULL),
                        ARRAY[]::text[]

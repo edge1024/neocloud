@@ -28,9 +28,29 @@ const GPU_BRAND_BY_MODEL = (() => {
   Object.entries(GPU_MODELS).forEach(([brand, models]) => { models.forEach(model => { if(model) m[model] = brand; }); });
   return m;
 })();
-const getGpuBrand = gpu =>
-  GPU_BRAND_BY_MODEL[gpu] ||
-  (Object.keys(GPU_MODELS).find(brand => GPU_MODELS[brand].some(m => m && gpu.startsWith(m.split(" ")[0]))) || "—");
+const GPU_BRANDS = Object.keys(GPU_MODELS).filter(brand => brand !== "其他");
+const startsWithBrand = (text, brand) =>
+  String(text || "").trim().toLowerCase().startsWith(`${String(brand || "").trim().toLowerCase()} `);
+const buildGpuLabel = (brand, model) => {
+  const b = String(brand || "").trim();
+  const m = String(model || "").trim();
+  if (!b || b === "其他") return m;
+  if (!m) return b;
+  return startsWithBrand(m, b) ? m : `${b} ${m}`;
+};
+const stripGpuBrandPrefix = (brand, model) => {
+  const b = String(brand || "").trim();
+  const m = String(model || "").trim();
+  return b && startsWithBrand(m, b) ? m.slice(b.length).trim() : m;
+};
+const getGpuBrand = gpu => {
+  const value = String(gpu || "").trim();
+  if (!value) return "—";
+  const explicit = GPU_BRANDS.find(brand => startsWithBrand(value, brand));
+  if (explicit) return explicit;
+  if (GPU_BRAND_BY_MODEL[value]) return GPU_BRAND_BY_MODEL[value];
+  return GPU_BRANDS.find(brand => GPU_MODELS[brand].some(m => m && value.startsWith(m.split(" ")[0]))) || "—";
+};
 
 const VRAM_MAP = {
   "H100 SXM5 80GB":"80GB","H100 PCIe 80GB":"80GB","H100 NVL 94GB":"94GB",
@@ -112,7 +132,7 @@ function VendorModal({ vendor, resources, onClose, onContact }) {
             <span style={{fontWeight:600,fontSize:14,color:r.available?"#0f172a":"#94a3b8"}}>{r.gpu}</span>
             <span style={{color:"#2563eb",fontWeight:700}}>{r.price}<span style={{fontSize:11,fontWeight:400,color:"#64748b"}}> {r.billingUnit||`${r.countUnit||"卡"}/时`}</span></span>
           </div>
-          <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>{r.mem} · {r.bandwidth||"—"} · {r.count}卡 · {r.region}</div>
+          <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>{r.mem} · {r.bandwidth||"—"} · {r.count}{r.countUnit||"卡"} · {r.region}</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
             {r.tags.map(t=><Tag key={t} t={t} />)}
             <span style={{marginLeft:"auto",fontSize:11,color:r.available?"#2563eb":"#94a3b8"}}>{r.available?"● 可用":"● 售罄"}</span>
@@ -297,13 +317,22 @@ function PublishModal({ vendor, onClose, onPublish }) {
   const handle = async () => {
     if (!valid || saving) return;
     setSaving(true); setErr("");
-    const gpuLabel = `${form.brand} ${form.gpuModel}`;
+    const gpuLabel = buildGpuLabel(form.brand, form.gpuModel);
+    const token = vendor?._token || localStorage.getItem("auth_token");
+    if (!token) {
+      setErr("请先登录供应商账号");
+      setSaving(false);
+      return;
+    }
     const body = {
-      vendorId: vendor.id,
       gpu: gpuLabel, mem: form.vram, bandwidth: "",
       count: Number(form.count), price: Number(form.price),
       delivery: form.delivery, region: form.region,
-      available: form.status === "可售", tags: [], desc: form.config,
+      status: form.status === "预售" ? "预租" : "在线",
+      available: form.status === "可售", tags: [], desc: "",
+      config_req: form.config,
+      contract_type: form.contract,
+      payment_type: form.paymentTerms,
       billing_unit: form.billingUnit,
       contact_name: form.contactName || null,
       count_unit: form.countUnit || "卡",
@@ -318,7 +347,7 @@ function PublishModal({ vendor, onClose, onPublish }) {
     try {
       const res = await fetch(`${API}/api/resources`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -511,6 +540,8 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
     region:        resource.region     || "国内",
     delivery:      resource.delivery   || "裸金属",
     status:        resource.status     || "在线",
+    contractType:  resource.contractType|| "",
+    paymentType:   resource.paymentType || "",
     isVisible:     resource.isVisible !== false,
     availableQuantity: resource.availableQuantity != null ? String(resource.availableQuantity) : "",
     dcLocation:    resource.dcLocation    || "",
@@ -548,7 +579,8 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
   };
   const handleModel = (modelId) => {
     const m = gpuModelsList.find(x=>x.id===modelId);
-    if (m) setForm(f=>({...f, gpu: m.name, mem: m.vram_gb ? `${m.vram_gb}GB` : f.mem}));
+    const brand = gpuBrands.find(b=>b.id===selBrandId)?.name || "";
+    if (m) setForm(f=>({...f, gpu: buildGpuLabel(brand, m.name), mem: m.vram_gb ? `${m.vram_gb}GB` : f.mem}));
   };
 
   const handle = async () => {
@@ -571,6 +603,8 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
           region:            form.region,
           delivery:          form.delivery,
           status:            form.status,
+          contract_type:     form.contractType.trim(),
+          payment_type:      form.paymentType.trim(),
           is_visible:        form.isVisible,
           available_quantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
           dc_location:       form.dcLocation.trim(),
@@ -591,6 +625,7 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
         count: Number(form.count), countUnit: form.countUnit,
         billingUnit: form.billingUnit, currency: form.currency, price: Number(form.price),
         region: form.region, delivery: form.delivery, status: form.status,
+        contractType: form.contractType.trim(), paymentType: form.paymentType.trim(),
         isVisible: form.isVisible,
         availableQuantity: form.availableQuantity !== "" ? Number(form.availableQuantity) : null,
         dcLocation: form.dcLocation.trim(),
@@ -743,11 +778,24 @@ function EditResourceModal({ resource, token, onClose, onSaved }) {
         <div />
       </div>
 
+      {/* 商务条款 */}
+      <div style={sl}>商务条款</div>
+      <div style={row2}>
+        <div>
+          <label style={lbl}>合同要求</label>
+          <input value={form.contractType} onChange={set("contractType")} placeholder="如：3年闭口" style={inp} />
+        </div>
+        <div>
+          <label style={lbl}>付款要求</label>
+          <input value={form.paymentType} onChange={set("paymentType")} placeholder="如：押一付三" style={inp} />
+        </div>
+      </div>
+
       {/* 补充信息 */}
       <div style={sl}>补充信息</div>
       <div>
-        <label style={lbl}>描述 / 配置说明</label>
-        <textarea value={form.desc} onChange={set("desc")} rows={3} placeholder="互联方式、带宽、存储配置等" style={{...inp,resize:"vertical"}} />
+        <label style={lbl}>配置说明</label>
+        <textarea value={form.configReq} onChange={set("configReq")} rows={3} placeholder="互联方式、带宽、存储配置等" style={{...inp,resize:"vertical"}} />
       </div>
       <div>
         <label style={lbl}>联系人姓名（选填，覆盖公司默认联系人）</label>
@@ -838,7 +886,7 @@ function ResourceCard({ r, token, onUpdate, onDelete }) {
             </select>
           </div>
           <div>
-            <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>数量（卡）</div>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>数量（{localR.countUnit||"卡"}）</div>
             <input type="number" min={1} value={count} onChange={e=>setCount(e.target.value)} style={{width:70,fontSize:12,padding:"4px 8px",borderRadius:6,border:"1px solid #e2e8f0",textAlign:"center"}} />
           </div>
           <div>
@@ -908,8 +956,41 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
   const [myMemory, setMyMemory] = useState([]);
   const [memLoading, setMemLoading] = useState(false);
   const [editingMemory, setEditingMemory] = useState(null);
-  const myRes = resources.filter(r=>r.vendorId===vendor.id);
+  const [myResources, setMyResources] = useState(()=>resources.filter(r=>r.vendorId===vendor.id));
+  const [resLoading, setResLoading] = useState(false);
+  const [resLoaded, setResLoaded] = useState(false);
+  const myRes = myResources;
   const availCount = myRes.filter(r=>r.status==="在线"||r.available).length;
+
+  useEffect(()=>{
+    if (resLoaded) return;
+    setMyResources(resources.filter(r=>r.vendorId===vendor.id));
+  }, [resources, vendor.id, resLoaded]);
+
+  useEffect(()=>{
+    if (dashTab !== "resources") return;
+    setResLoading(true);
+    fetch(`${API}/api/vendor/resources`, { headers:{ Authorization:`Bearer ${vendor._token}` } })
+      .then(r=>r.ok?r.json():[])
+      .then(data=>{ setMyResources(data); setResLoaded(true); })
+      .catch(()=>{})
+      .finally(()=>setResLoading(false));
+  }, [dashTab, vendor._token]);
+
+  const handleUpdateOwnResource = (id, patch) => {
+    setMyResources(rs=>rs.map(r=>r.id===id?{...r,...patch}:r));
+    onUpdateResource(id, patch);
+  };
+
+  const handleDeleteOwnResource = (id) => {
+    setMyResources(rs=>rs.filter(r=>r.id!==id));
+    onDeleteResource(id);
+  };
+
+  const handlePublishOwnResource = (resource) => {
+    setMyResources(rs=>[resource, ...rs.filter(r=>r.id!==resource.id)]);
+    onPublish(resource);
+  };
 
   useEffect(()=>{
     if (dashTab !== "demands") return;
@@ -926,10 +1007,11 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
   }, [dashTab]);
 
   const patchDemand = async (id, data) => {
-    await fetch(`${API}/api/demands/${id}`, {
+    const res = await fetch(`${API}/api/demands/${id}`, {
       method:"PATCH", headers:{"Content-Type":"application/json", Authorization:`Bearer ${vendor._token}`},
       body: JSON.stringify(data),
     });
+    if (!res.ok) throw new Error(await res.text());
     setMyDemands(ds=>ds.map(d=>d.id===id?{...d,...data}:d));
   };
 
@@ -1136,7 +1218,9 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
               </button>
             </div>
           </div>
-          {myRes.length===0 ? (
+          {resLoading ? (
+            <div style={{textAlign:"center",padding:"60px 0",color:"#94a3b8",fontSize:13}}>加载中...</div>
+          ) : myRes.length===0 ? (
             <div style={{textAlign:"center",padding:"80px 0",border:"1px dashed #d1d5db",borderRadius:16,color:"#94a3b8"}}>
               <div style={{fontSize:40,marginBottom:12}}>🖥️</div>
               <div style={{fontSize:16,marginBottom:6,color:"#374151"}}>还没有发布任何资源</div>
@@ -1145,7 +1229,7 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
             </div>
           ) : (
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              {myRes.map(r=><ResourceCard key={r.id} r={r} token={vendor._token} onUpdate={onUpdateResource} onDelete={onDeleteResource} />)}
+              {myRes.map(r=><ResourceCard key={r.id} r={r} token={vendor._token} onUpdate={handleUpdateOwnResource} onDelete={handleDeleteOwnResource} />)}
             </div>
           )}
         </>}
@@ -1271,7 +1355,7 @@ function Dashboard({ vendor, resources, onPublish, onExit, onUpdateResource, onD
           )}
         </>}
       </div>
-      {showPublish && <PublishModal vendor={vendor} onClose={()=>setShowPublish(false)} onPublish={onPublish} />}
+      {showPublish && <PublishModal vendor={vendor} onClose={()=>setShowPublish(false)} onPublish={handlePublishOwnResource} />}
       {editingDemand && <PostRequirementModal vendor={vendor} initialDemand={editingDemand} onClose={()=>setEditingDemand(null)} onSuccess={data=>{ patchDemand(data.id, data); setEditingDemand(null); }} />}
       {editingMemory && <MemoryEditModal item={editingMemory} token={vendor._token} onClose={()=>setEditingMemory(null)} onSuccess={updated=>{ setMyMemory(ls=>ls.map(x=>x.id===updated.id?updated:x)); setEditingMemory(null); }} />}
     </div>
@@ -1417,6 +1501,7 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
   const shareToken     = resource.shareToken     || vendor?.shareToken    || "";
 
   const shareText = `【GPU 资源】${resource.gpu}\n供应商：${vendorName}  ${resource.region}\n数量：${resource.availableQuantity??resource.count} ${countUnit}\n状态：${resource.status||"在线"}\n来源：${shareUrl}`;
+  const configText = resource.configReq || resource.desc || "";
 
   // 基本信息（两列布局）
   const basicItems = [
@@ -1438,11 +1523,16 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
 
   // 配置信息（单列，每行一条）
   const configItems = [
-    ["配置要求", resource.desc || null],
+    ["配置说明", configText || null],
     ["存储要求", resource.storageReq || null],
     ["带宽要求", resource.bandwidthReq || null],
     ["公网 IP", resource.publicIpReq || null],
     ["CPU 配置", resource.extraCpuConfig || null],
+  ].filter(([, v]) => v);
+
+  const businessItems = [
+    ["合同要求", resource.contractType || null],
+    ["付款要求", resource.paymentType || null],
   ].filter(([, v]) => v);
 
   // 联系人信息 — 空值跳过
@@ -1500,6 +1590,19 @@ function ResourceDetailModal({ resource, vendor, onClose }) {
                 <div key={k} style={{display:"flex",marginBottom:6,minWidth:0}}>
                   <span style={{fontSize:12,color:"#999",minWidth:80,flexShrink:0}}>{k}:</span>
                   <span style={{fontSize:14,color:"#333",wordBreak:"break-word",flex:1}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </>}
+
+          {/* 商务条款 */}
+          {businessItems.length > 0 && <>
+            <SectionLabel>商务条款</SectionLabel>
+            <div className="resource-detail-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 16px",marginBottom:12}}>
+              {businessItems.map(([k, v]) => (
+                <div key={k} style={{display:"flex",alignItems:"baseline",minWidth:0}}>
+                  <span style={{fontSize:12,color:"#999",flexShrink:0}}>{k}</span>
+                  <span style={{fontSize:14,color:"#333",marginLeft:8,wordBreak:"break-word"}}>{v}</span>
                 </div>
               ))}
             </div>
@@ -1599,7 +1702,7 @@ function GpuModelGroup({ gpu, items, vendors, onDetailClick }) {
                   }}
                 >{vendor?.name||"—"}</span>
                 <span className="desk-only" style={{fontSize:11,color:"#94a3b8"}}>⭐ {vendor?.rating||"—"}</span>
-                <span className="desk-only" style={{fontSize:12,color:"#64748b",minWidth:36}}>{r.count}卡</span>
+                <span className="desk-only" style={{fontSize:12,color:"#64748b",minWidth:36}}>{r.count}{r.countUnit||"卡"}</span>
                 <span className="desk-only" style={{fontSize:12,color:"#64748b",minWidth:28}}>{r.region}</span>
                 <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}> {r.billingUnit||`${r.countUnit||"卡"}/时`}</span></span>
                 <span style={{fontSize:11,color:r.available?"#2563eb":"#94a3b8",minWidth:40}}>{r.available?"● 可用":"● 售罄"}</span>
@@ -1677,6 +1780,8 @@ function PostRequirementModal({ onClose, onSuccess, subscriberCount=0, vendor=nu
     };
   };
   const [form, setForm] = useState(getInitialState);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitErr, setSubmitErr] = useState("");
   const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
 
   const gpuOpts = GPU_MODEL_BY_BRAND[form.gpuBrand] ?? GPU_MODEL_BY_BRAND[""];
@@ -1688,8 +1793,8 @@ function PostRequirementModal({ onClose, onSuccess, subscriberCount=0, vendor=nu
     (form.gpuBrand !== "其他" || form.gpuBrandOther.trim()) &&
     (form.gpu !== "其他" ? form.gpu.trim() : form.gpuOther.trim());
 
-  const handleSubmit = () => {
-    if (!valid) return;
+  const handleSubmit = async () => {
+    if (!valid || submitting) return;
     const today = new Date().toISOString().slice(0,10);
     const gpuBrandFull = form.gpuBrand === "其他" ? form.gpuBrandOther.trim() : form.gpuBrand;
     const gpuFull = form.gpu === "其他" ? form.gpuOther.trim() : form.gpu;
@@ -1711,8 +1816,15 @@ function PostRequirementModal({ onClose, onSuccess, subscriberCount=0, vendor=nu
       delivery:form.deliveryType, tags:[], desc:form.notes,
       budget:0, contact:form.contactName, createdAt:today,
     };
-    onSuccess?.(data);
-    if (editMode) { onClose?.(); } else { setSent(true); }
+    setSubmitting(true); setSubmitErr("");
+    try {
+      await onSuccess?.(data);
+      if (editMode) { onClose?.(); } else { setSent(true); }
+    } catch(e) {
+      setSubmitErr(e.message || "提交失败");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const sl = {fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:1,marginBottom:10,marginTop:20,paddingBottom:8,borderBottom:"1px solid #e2e8f0"};
@@ -1867,8 +1979,9 @@ function PostRequirementModal({ onClose, onSuccess, subscriberCount=0, vendor=nu
 
         <div style={{display:"flex",gap:10,marginTop:8}}>
           <button onClick={onClose} style={{...ghostBtn,flex:1}}>取消</button>
-          <button onClick={handleSubmit} style={{...primaryBtn,flex:2,opacity:valid?1:0.4,cursor:valid?"pointer":"default"}}>{editMode?"保存修改":"发布需求"}</button>
+          <button onClick={handleSubmit} disabled={submitting} style={{...primaryBtn,flex:2,opacity:(valid&&!submitting)?1:0.4,cursor:(valid&&!submitting)?"pointer":"default"}}>{submitting?"提交中...":(editMode?"保存修改":"发布需求")}</button>
         </div>
+        {submitErr && <div style={{fontSize:12,color:"#ef4444",marginTop:8}}>{submitErr}</div>}
       </> : <div style={{textAlign:"center",padding:"28px 0"}}>
         <div style={{fontSize:44,marginBottom:12}}>📋</div>
         <div style={{fontSize:18,fontWeight:700,marginBottom:6,color:"#0f172a"}}>需求已发布！</div>
@@ -1961,30 +2074,24 @@ function PostResourceFromDemandModal({ onClose, onSuccess, subscriberCount=0, au
     if (!valid || submitting) return;
     setSubmitting(true); setSubmitErr("");
     try {
-      const gpuLabel = `${form.brand} ${form.gpuModel}`;
+      const gpuLabel = buildGpuLabel(form.brand, form.gpuModel);
+      const token = localStorage.getItem("auth_token");
+      if (!authVendor || !token) throw new Error("请先登录供应商账号");
 
-      // 1. 已登录供应商直接复用，否则新建
-      let savedVendor;
-      if (authVendor) {
-        savedVendor = authVendor;
-      } else {
-        const vRes = await fetch(`${API}/api/vendors`, {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ name:form.company, location:form.region||"国内" }),
-        });
-        if (!vRes.ok) throw new Error("供应商创建失败：" + await vRes.text());
-        savedVendor = await vRes.json();
-      }
+      const savedVendor = authVendor;
 
-      // 2. 保存资源
       const rRes = await fetch(`${API}/api/resources`, {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
         body: JSON.stringify({
-          vendorId: savedVendor.id,
           gpu: gpuLabel, mem: form.vram, bandwidth: "",
           count: Number(form.count), price: Number(form.price),
           delivery: form.delivery, region: form.region,
-          available: form.status === "可售", tags: [], desc: form.config,
+          status: form.status === "预售" ? "预租" : "在线",
+          available: form.status === "可售", tags: [], desc: "",
+          config_req: form.config,
+          contract_type: form.contract,
+          payment_type: form.paymentTerms,
           billing_unit: form.billingUnit,
           contact_name: form.contactName || null,
           count_unit: form.countUnit || "台",
@@ -2187,7 +2294,7 @@ function VendorRow({ vendor, resources, onDetailClick, onContactClick, autoExpan
             >
               <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:14,letterSpacing:1,color:"#0f172a",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.gpu}</span>
               <div style={{display:"flex",gap:4}}>{r.tags.slice(0,2).map(t=><Tag key={t} t={t} />)}</div>
-              <span style={{fontSize:12,color:"#64748b",minWidth:36}}>{r.count}卡</span>
+              <span style={{fontSize:12,color:"#64748b",minWidth:36}}>{r.count}{r.countUnit||"卡"}</span>
               <span style={{fontSize:12,color:"#64748b",minWidth:28}}>{r.region}</span>
               <span style={{fontSize:14,fontWeight:700,color:"#2563eb",fontFamily:"'Bebas Neue',cursive",minWidth:80,textAlign:"right"}}>{r.price}<span style={{fontSize:10,fontWeight:400,color:"#94a3b8",fontFamily:"'Noto Sans SC',sans-serif"}}> {r.billingUnit||`${r.countUnit||"卡"}/时`}</span></span>
               <span style={{fontSize:11,color:r.available?"#2563eb":"#94a3b8",minWidth:40}}>{r.available?"● 可用":"● 售罄"}</span>
@@ -3755,9 +3862,12 @@ function AdminPanel({ onExit, token }) {
   };
   const addModel = async () => {
     if (!modelForm.name.trim() || !selSeriesId || !selBrandId) return;
+    const brandName = gpuBrands.find(b=>b.id===selBrandId)?.name || "";
+    const modelName = stripGpuBrandPrefix(brandName, modelForm.name);
+    if (!modelName) return;
     setGpuSaving("model");
     try {
-      const res = await fetch(`${API}/api/admin/gpu-models`, { method:"POST", headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`}, body:JSON.stringify({series_id:selSeriesId,brand_id:selBrandId,name:modelForm.name.trim(),vram_gb:modelForm.vram_gb?Number(modelForm.vram_gb):null,architecture:modelForm.architecture||null,sort_order:Number(modelForm.sort_order)||0}) });
+      const res = await fetch(`${API}/api/admin/gpu-models`, { method:"POST", headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`}, body:JSON.stringify({series_id:selSeriesId,brand_id:selBrandId,name:modelName,vram_gb:modelForm.vram_gb?Number(modelForm.vram_gb):null,architecture:modelForm.architecture||null,sort_order:Number(modelForm.sort_order)||0}) });
       if (res.ok) { const d=await res.json(); setGpuModelsList(m=>[...m,d]); setModelForm({name:"",vram_gb:"",architecture:"",sort_order:"0"}); }
     } finally { setGpuSaving(""); }
   };
@@ -4481,6 +4591,7 @@ function ResourceDetailPage({ resourceId }) {
   const qrUrl = `${window.location.origin}/resources/${r.id}`;
   const countUnit = r.countUnit||"卡";
   const qrLabel = `${r.availableQuantity??r.count}${countUnit} ${r.gpu} 租赁资源`;
+  const configText = r.configReq || r.desc || "";
   const fields = [
     ["GPU 品牌", brand],["GPU 型号", r.gpu],["数量", `${r.availableQuantity??r.count} ${countUnit}`],
     ["单价", r.price!=null?String(r.price):null],
@@ -4491,6 +4602,8 @@ function ResourceDetailPage({ resourceId }) {
     ["状态", r.status||(r.available?"在线":null)],
     ["显存", r.mem||null],["内存带宽", r.bandwidth||null],
     ["交付形式", r.delivery||null],
+    ["合同要求", r.contractType||null],
+    ["付款要求", r.paymentType||null],
     ["可用数量", r.availableQuantity!=null?String(r.availableQuantity):null],
     ["发布时间", r.createdAt||null],
   ].filter(([,v])=>v);
@@ -4511,7 +4624,7 @@ function ResourceDetailPage({ resourceId }) {
         <div style={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:16,padding:"24px 24px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
           <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:24,letterSpacing:1.5,color:"#0f172a",marginBottom:4}}>{r.gpu}</div>
           <span style={{display:"inline-block",marginBottom:16,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:"rgba(37,99,235,0.08)",color:"#2563eb"}}>{brand}</span>
-          {r.desc && <div style={{fontSize:13,color:"#475569",lineHeight:1.7,borderLeft:"2px solid #bfdbfe",paddingLeft:12,marginBottom:16}}>{r.desc}</div>}
+          {configText && <div style={{fontSize:13,color:"#475569",lineHeight:1.7,borderLeft:"2px solid #bfdbfe",paddingLeft:12,marginBottom:16}}>{configText}</div>}
           {r.tags?.length>0 && <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>{r.tags.map(t=><Tag key={t} t={t} />)}</div>}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"10px 16px"}}>
             {fields.map(([label,value])=>(
@@ -5061,15 +5174,13 @@ export default function App() {
       {showRegister&&<RegisterModal onClose={()=>setShowRegister(false)} onSuccess={handleRegister} />}
       {showAuth&&<AuthModal defaultTab={showAuth} onClose={()=>setShowAuth(null)} onSuccess={(vendor,token,role)=>{ localStorage.setItem("auth_token",token); if(role==="admin"){ setAuthAdmin(true); } else { setAuthVendor(vendor); if(pendingPost==="resource"){ setPendingPost(null); setShowPostRes(true); } else if(pendingPost==="demand"){ setPendingPost(null); setShowPostReq(true); } } setShowAuth(null); }} />}
       {showPostReq&&<PostRequirementModal vendor={authVendor} onClose={()=>setShowPostReq(false)} onSuccess={async d=>{
-        setDemands(ds=>[d,...ds]);
+        const token = localStorage.getItem("auth_token");
+        if (!token) throw new Error("请先登录供应商账号");
+        const res = await fetch(`${API}/api/demands`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(d)});
+        if (!res.ok) throw new Error(await res.text());
+        const saved = await res.json();
+        setDemands(ds=>[saved,...ds]);
         setTabView("demands");
-        try {
-          const res = await fetch(`${API}/api/demands`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...d,vendor_id:authVendor?.id??null})});
-          if (res.ok) {
-            const saved = await res.json();
-            setDemands(ds=>ds.map(x=>x.id===d.id?{...x,...saved}:x));
-          }
-        } catch(e) {}
       }} subscriberCount={demSubscriberCount} />}
       {showPostRes&&<PostResourceFromDemandModal onClose={()=>setShowPostRes(false)} authVendor={authVendor} onSuccess={(v,r)=>{
         handlePublishFromDemand(v,r);

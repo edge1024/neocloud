@@ -6,6 +6,7 @@
 -- 启用扩展
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =============================================================================
 -- ENUM 类型定义
@@ -47,6 +48,8 @@ CREATE TABLE vendors (
     contact_phone VARCHAR(50),
     email         VARCHAR(200),
     share_token   VARCHAR(50)    UNIQUE,
+    slug          VARCHAR(50)    UNIQUE,
+    wechat        TEXT,
     rating        NUMERIC(2, 1)  NOT NULL DEFAULT 5.0,
     review_count  INT            NOT NULL DEFAULT 0,
     status        vendor_status  NOT NULL DEFAULT 'active',
@@ -62,7 +65,40 @@ CREATE TABLE tags (
     name VARCHAR(50) NOT NULL UNIQUE
 );
 
--- 4. gpu_resources — GPU 算力资源
+-- 4. GPU 型号库
+CREATE TABLE gpu_brands (
+    id         SERIAL       PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL UNIQUE,
+    logo_url   TEXT,
+    sort_order INT          NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE gpu_series (
+    id         SERIAL       PRIMARY KEY,
+    brand_id   INT          NOT NULL REFERENCES gpu_brands(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    sort_order INT          NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (brand_id, name)
+);
+
+CREATE TABLE gpu_models (
+    id           SERIAL       PRIMARY KEY,
+    series_id    INT          NOT NULL REFERENCES gpu_series(id) ON DELETE CASCADE,
+    brand_id     INT          NOT NULL REFERENCES gpu_brands(id) ON DELETE CASCADE,
+    name         VARCHAR(200) NOT NULL,
+    vram_gb      NUMERIC(8, 2),
+    tdp_w        INT,
+    architecture VARCHAR(100),
+    sort_order   INT          NOT NULL DEFAULT 0,
+    is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (series_id, name)
+);
+
+-- 5. gpu_resources — GPU 算力资源
 CREATE TABLE gpu_resources (
     id               BIGSERIAL      PRIMARY KEY,
     vendor_id        BIGINT         NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
@@ -84,14 +120,14 @@ CREATE TABLE gpu_resources (
     CONSTRAINT chk_price_positive CHECK (price_per_hour > 0)
 );
 
--- 5. resource_tag_map — 资源 ↔ 标签（多对多）
+-- 6. resource_tag_map — 资源 ↔ 标签（多对多）
 CREATE TABLE resource_tag_map (
     resource_id BIGINT NOT NULL REFERENCES gpu_resources(id) ON DELETE CASCADE,
     tag_id      INT    NOT NULL REFERENCES tags(id)          ON DELETE CASCADE,
     PRIMARY KEY (resource_id, tag_id)
 );
 
--- 6. demands — 采购需求
+-- 7. demands — 采购需求
 CREATE TABLE demands (
     id               BIGSERIAL      PRIMARY KEY,
     -- 基础租赁信息
@@ -175,11 +211,69 @@ CREATE TABLE payments (
     CONSTRAINT chk_payment_amount CHECK (amount > 0)
 );
 
+-- 10. memory_listings — 内存条买卖信息
+CREATE TABLE memory_listings (
+    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    title               VARCHAR      NOT NULL,
+    listing_type        VARCHAR      NOT NULL,
+    brand               VARCHAR      NOT NULL,
+    generation          VARCHAR      NOT NULL,
+    capacity_per_stick  VARCHAR      NOT NULL,
+    quantity            INTEGER      NOT NULL,
+    frequency           VARCHAR      NOT NULL,
+    condition           VARCHAR      NOT NULL,
+    warranty            VARCHAR,
+    description         TEXT,
+    price_per_stick     NUMERIC,
+    tax_included        VARCHAR,
+    invoice_one_to_one  BOOLEAN      DEFAULT TRUE,
+    payment_method      VARCHAR,
+    shipping_method     VARCHAR,
+    location            VARCHAR      NOT NULL,
+    contact_name        VARCHAR      NOT NULL,
+    contact_info        VARCHAR      NOT NULL,
+    price_valid_until   VARCHAR,
+    is_visible          BOOLEAN      DEFAULT TRUE,
+    created_at          TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ  DEFAULT NOW(),
+    user_id             UUID
+);
+
+-- 11. server_listings — 服务器整机买卖信息
+CREATE TABLE server_listings (
+    id                    UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_type          VARCHAR      NOT NULL,
+    gpu_model             VARCHAR      NOT NULL,
+    brand                 VARCHAR,
+    stock_type            VARCHAR      NOT NULL,
+    quantity              INTEGER      NOT NULL,
+    min_batch_quantity    INTEGER,
+    condition             VARCHAR      NOT NULL,
+    delivery_date         VARCHAR,
+    config_requirements   TEXT,
+    budget_per_unit       VARCHAR,
+    tax_included          BOOLEAN      DEFAULT TRUE,
+    payment_method        VARCHAR,
+    other_requirements    TEXT,
+    contact_name          VARCHAR      NOT NULL,
+    contact_info          VARCHAR      NOT NULL,
+    is_visible            BOOLEAN      DEFAULT TRUE,
+    created_at            TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ  DEFAULT NOW(),
+    user_id               UUID
+);
+
 -- =============================================================================
 -- 索引
 -- =============================================================================
 CREATE INDEX idx_vendors_status      ON vendors(status);
 CREATE INDEX idx_vendors_rating      ON vendors(rating DESC);
+CREATE INDEX idx_vendors_slug        ON vendors(slug);
+
+CREATE INDEX idx_gpu_series_brand    ON gpu_series(brand_id);
+CREATE INDEX idx_gpu_models_series   ON gpu_models(series_id);
+CREATE INDEX idx_gpu_models_brand    ON gpu_models(brand_id);
+CREATE INDEX idx_gpu_models_active   ON gpu_models(is_active);
 
 CREATE INDEX idx_resources_vendor    ON gpu_resources(vendor_id);
 CREATE INDEX idx_resources_region    ON gpu_resources(region);
@@ -196,6 +290,14 @@ CREATE INDEX idx_orders_buyer        ON orders(buyer_id);
 CREATE INDEX idx_orders_vendor       ON orders(vendor_id);
 CREATE INDEX idx_orders_status       ON orders(status);
 
+CREATE INDEX idx_memory_listings_visible ON memory_listings(is_visible);
+CREATE INDEX idx_memory_listings_user    ON memory_listings(user_id);
+CREATE INDEX idx_memory_listings_created ON memory_listings(created_at DESC);
+
+CREATE INDEX idx_server_listings_visible ON server_listings(is_visible);
+CREATE INDEX idx_server_listings_user    ON server_listings(user_id);
+CREATE INDEX idx_server_listings_created ON server_listings(created_at DESC);
+
 -- =============================================================================
 -- 自动更新 updated_at
 -- =============================================================================
@@ -208,10 +310,35 @@ CREATE TRIGGER set_updated_at_vendors
     BEFORE UPDATE ON vendors FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 CREATE TRIGGER set_updated_at_gpu_resources
     BEFORE UPDATE ON gpu_resources FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+CREATE TRIGGER set_updated_at_gpu_models
+    BEFORE UPDATE ON gpu_models FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 CREATE TRIGGER set_updated_at_orders
     BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 CREATE TRIGGER set_updated_at_payments
     BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+CREATE TRIGGER set_updated_at_memory_listings
+    BEFORE UPDATE ON memory_listings FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+CREATE TRIGGER set_updated_at_server_listings
+    BEFORE UPDATE ON server_listings FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+-- =============================================================================
+-- Row Level Security policies for public hardware listings
+-- =============================================================================
+ALTER TABLE memory_listings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS memory_anon_read ON memory_listings;
+CREATE POLICY memory_anon_read ON memory_listings
+    FOR SELECT USING (is_visible = TRUE);
+DROP POLICY IF EXISTS memory_user_insert ON memory_listings;
+CREATE POLICY memory_user_insert ON memory_listings
+    FOR INSERT WITH CHECK (TRUE);
+
+ALTER TABLE server_listings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS server_anon_read ON server_listings;
+CREATE POLICY server_anon_read ON server_listings
+    FOR SELECT USING (is_visible = TRUE);
+DROP POLICY IF EXISTS server_user_insert ON server_listings;
+CREATE POLICY server_user_insert ON server_listings
+    FOR INSERT WITH CHECK (TRUE);
 
 -- =============================================================================
 -- 种子数据
@@ -221,6 +348,70 @@ CREATE TRIGGER set_updated_at_payments
 INSERT INTO tags (name) VALUES
     ('训练'),('推理'),('大模型'),('NVLink'),('渲染'),
     ('微调'),('入门'),('多模态'),('大内存');
+
+-- GPU 型号库基础数据
+INSERT INTO gpu_brands (name, sort_order) VALUES
+    ('NVIDIA', 10),
+    ('华为昇腾', 20),
+    ('其他', 99)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO gpu_series (brand_id, name, sort_order)
+SELECT id, 'H 系列', 10 FROM gpu_brands WHERE name = 'NVIDIA'
+ON CONFLICT (brand_id, name) DO NOTHING;
+INSERT INTO gpu_series (brand_id, name, sort_order)
+SELECT id, 'A 系列', 20 FROM gpu_brands WHERE name = 'NVIDIA'
+ON CONFLICT (brand_id, name) DO NOTHING;
+INSERT INTO gpu_series (brand_id, name, sort_order)
+SELECT id, 'RTX 系列', 30 FROM gpu_brands WHERE name = 'NVIDIA'
+ON CONFLICT (brand_id, name) DO NOTHING;
+INSERT INTO gpu_series (brand_id, name, sort_order)
+SELECT id, 'L 系列', 40 FROM gpu_brands WHERE name = 'NVIDIA'
+ON CONFLICT (brand_id, name) DO NOTHING;
+INSERT INTO gpu_series (brand_id, name, sort_order)
+SELECT id, 'B 系列', 50 FROM gpu_brands WHERE name = 'NVIDIA'
+ON CONFLICT (brand_id, name) DO NOTHING;
+INSERT INTO gpu_series (brand_id, name, sort_order)
+SELECT id, '910 系列', 10 FROM gpu_brands WHERE name = '华为昇腾'
+ON CONFLICT (brand_id, name) DO NOTHING;
+
+INSERT INTO gpu_models (series_id, brand_id, name, vram_gb, sort_order)
+SELECT s.id, b.id, m.name, m.vram_gb, m.sort_order
+FROM gpu_brands b
+JOIN gpu_series s ON s.brand_id = b.id
+JOIN (VALUES
+    ('H 系列', 'H100 SXM5 80GB', 80::numeric, 10),
+    ('H 系列', 'H100 PCIe 80GB', 80::numeric, 20),
+    ('H 系列', 'H100 NVL 94GB', 94::numeric, 30),
+    ('H 系列', 'H200 SXM5 141GB', 141::numeric, 40),
+    ('H 系列', 'H800 SXM 80GB', 80::numeric, 50),
+    ('H 系列', 'H20 96GB', 96::numeric, 60),
+    ('A 系列', 'A100 SXM4 80GB', 80::numeric, 10),
+    ('A 系列', 'A100 PCIe 40GB', 40::numeric, 20),
+    ('A 系列', 'A800 SXM 80GB', 80::numeric, 30),
+    ('RTX 系列', 'RTX 4090 24GB', 24::numeric, 10),
+    ('RTX 系列', 'RTX 5090 32GB', 32::numeric, 20),
+    ('L 系列', 'L40S 48GB', 48::numeric, 10),
+    ('B 系列', 'B100 192GB', 192::numeric, 10),
+    ('B 系列', 'B200 192GB', 192::numeric, 20),
+    ('B 系列', 'B300 288GB', 288::numeric, 30)
+) AS m(series_name, name, vram_gb, sort_order)
+ON s.name = m.series_name
+WHERE b.name = 'NVIDIA'
+ON CONFLICT (series_id, name) DO NOTHING;
+
+INSERT INTO gpu_models (series_id, brand_id, name, vram_gb, sort_order)
+SELECT s.id, b.id, m.name, 64::numeric, m.sort_order
+FROM gpu_brands b
+JOIN gpu_series s ON s.brand_id = b.id AND s.name = '910 系列'
+JOIN (VALUES
+    ('910B 64GB', 10),
+    ('910C 64GB', 20),
+    ('910B Pro 64GB', 30)
+) AS m(name, sort_order)
+ON TRUE
+WHERE b.name = '华为昇腾'
+ON CONFLICT (series_id, name) DO NOTHING;
 
 -- 供应商（强制 ID 以匹配原型数据）
 INSERT INTO vendors (id, company_name, location, rating, review_count, status, joined_at) OVERRIDING SYSTEM VALUE VALUES
@@ -393,7 +584,9 @@ ALTER TABLE gpu_resources
     ADD COLUMN IF NOT EXISTS need_extra_cpu   BOOLEAN      NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS extra_cpu_config TEXT         NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS count_unit       VARCHAR(10)  NOT NULL DEFAULT '卡',
-    ADD COLUMN IF NOT EXISTS currency         VARCHAR(10)  NOT NULL DEFAULT '人民币';
+    ADD COLUMN IF NOT EXISTS currency         VARCHAR(10)  NOT NULL DEFAULT '人民币',
+    ADD COLUMN IF NOT EXISTS contract_type    VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS payment_type     VARCHAR(100);
 
 -- =============================================================================
 -- Migration: subscriptions 表（微信推送订阅）
